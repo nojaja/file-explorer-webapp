@@ -5,7 +5,7 @@
 docker-compose up -d gitlab
 ```
 - 初回起動は数分かかるのだ。
-- http://localhost:8080 でGitlabにアクセスできるのだ。
+- http://localhost:8929 でGitlabにアクセスできるのだ。
 
 ## 2. GitlabでOAUTHアプリ登録
 1. 管理者でログイン
