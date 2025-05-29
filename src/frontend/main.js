@@ -111,19 +111,60 @@ async function updateLoginStatus() {
   try {
     const res = await fetch('/auth/status');
     const data = await res.json();
+    
+    // ユーザー情報表示領域を更新
     if (!loginStatusSpan) {
-      loginStatusSpan = document.createElement('span');
+      loginStatusSpan = document.createElement('div');
       loginStatusSpan.id = 'login-status';
       loginStatusSpan.style.marginLeft = '1em';
       loginStatusSpan.style.fontWeight = 'bold';
+      loginStatusSpan.style.display = 'flex';
+      loginStatusSpan.style.alignItems = 'center';
+      loginStatusSpan.style.marginTop = '0.5em';
+      loginStatusSpan.style.marginBottom = '0.5em';
       authArea.appendChild(loginStatusSpan);
     }
+    
     const oldRefreshBtn = document.getElementById('refresh-list-btn');
     if (oldRefreshBtn) oldRefreshBtn.remove();
+    
     if (data.authenticated) {
-      loginStatusSpan.textContent = `ログイン中: ${data.name || ''}`;
+      // プロバイダーバッジを追加
+      const providerName = data.provider || 'unknown';
+      const providerLabel = {
+        'github': 'GitHub',
+        'gitlab': 'GitLab',
+        'hydra': 'Hydra',
+        'unknown': 'OAuth'
+      }[providerName] || 'OAuth';
+      
+      let avatarHtml = '';
+      // GitLab固有のアバター表示
+      if (data.avatar) {
+        avatarHtml = `<img src="${data.avatar}" alt="User Avatar" style="width: 24px; height: 24px; border-radius: 50%; margin-right: 8px;">`;
+      }
+      
+      // プロバイダーに合わせたバッジスタイル
+      const badgeColor = {
+        'github': '#333',
+        'gitlab': '#fc6d26',
+        'hydra': '#009688',
+        'unknown': '#757575'
+      }[providerName] || '#757575';
+      
+      loginStatusSpan.innerHTML = `
+        ${avatarHtml}
+        <span style="display:flex; align-items:center;">
+          ログイン中: ${data.name || ''}
+          <span style="background-color: ${badgeColor}; color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">
+            ${providerLabel}
+          </span>
+        </span>
+      `;
+      
       document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra').forEach(btn => btn.style.display = 'none');
       logoutBtn.style.display = '';
+      
       const container = document.querySelector('.container');
       const breadcrumb = document.getElementById('breadcrumb');
       const refreshBtn = document.createElement('button');
@@ -131,23 +172,28 @@ async function updateLoginStatus() {
       refreshBtn.className = 'refresh-btn';
       refreshBtn.innerHTML = '<span class="material-icons">refresh</span>ファイル一覧を更新する';
       refreshBtn.addEventListener('click', () => fetchFiles(currentPath));
+      
       if (breadcrumb && breadcrumb.nextSibling) {
         container.insertBefore(refreshBtn, breadcrumb.nextSibling);
       } else {
         container.appendChild(refreshBtn);
       }
+      
       fileTable.style.display = '';
       fetchFiles(currentPath);
     } else {
       loginStatusSpan.textContent = '未ログイン';
       document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra').forEach(btn => btn.style.display = '');
       logoutBtn.style.display = 'none';
+      
       const oldRefreshBtn2 = document.getElementById('refresh-list-btn');
       if (oldRefreshBtn2) oldRefreshBtn2.remove();
+      
       fileTable.style.display = 'none';
     }
   } catch (e) {
     if (loginStatusSpan) loginStatusSpan.textContent = '認証状態取得失敗';
+    console.error('認証状態取得エラー:', e);
   }
 }
 

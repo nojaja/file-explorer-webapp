@@ -12,6 +12,7 @@ import authRouter from "./routes/auth.js";
 import { Strategy as GitLabStrategy } from "passport-gitlab2";
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import fetch from "node-fetch";
+import { gitlabUrlReplaceMiddleware } from "./middlewares/gitlabUrlReplace.js";
 // .env読込
 dotenv.config();
 
@@ -39,6 +40,9 @@ app.use(session({
 // passport初期化
 app.use(passport.initialize());
 app.use(passport.session());
+
+// GitLab URL置換ミドルウェア
+app.use(gitlabUrlReplaceMiddleware);
 
 // JSONボディ
 app.use(express.json());
@@ -144,7 +148,19 @@ passport.use(new GitLabStrategy({
   clientID: process.env.GITLAB_CLIENT_ID,
   clientSecret: process.env.GITLAB_CLIENT_SECRET,
   callbackURL: process.env.OAUTH_CALLBACK_URL,
+  baseURL: process.env.GITLAB_URL || 'http://localhost:8929', // ブラウザ向けURLを使用（認証画面表示用）
+  tokenURL: process.env.GITLAB_URL_INTERNAL + '/oauth/token', // トークン取得用のエンドポイント（内部URL使用）
+  authorizationURL: process.env.GITLAB_URL + '/oauth/authorize', // 認証画面URL（ブラウザ向けURL使用）
 }, (accessToken, refreshToken, profile, done) => {
+  console.log('[gitlab passport] 認証成功:', { 
+    accessToken: accessToken.substring(0, 20) + '...', 
+    refreshToken: refreshToken ? refreshToken.substring(0, 20) + '...' : 'なし',
+    profile: {
+      id: profile.id,
+      username: profile.username,
+      displayName: profile.displayName
+    }
+  });
   return done(null, profile);
 }));
 
