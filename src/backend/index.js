@@ -13,6 +13,7 @@ import { Strategy as GitLabStrategy } from "passport-gitlab2";
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import fetch from "node-fetch";
 import { gitlabUrlReplaceMiddleware } from "./middlewares/gitlabUrlReplace.js";
+import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
 // .env読込
 dotenv.config();
 
@@ -43,6 +44,9 @@ app.use(passport.session());
 
 // GitLab URL置換ミドルウェア
 app.use(gitlabUrlReplaceMiddleware);
+// Hydra URL置換ミドルウェア
+app.use(hydraUrlReplaceMiddleware);
+
 
 // JSONボディ
 app.use(express.json());
