@@ -5,14 +5,17 @@ const errorDiv = document.getElementById('error');
 const logoutBtn = document.getElementById('logout-btn');
 const authArea = document.getElementById('auth-area');
 let loginStatusSpan;
+let currentPath = '';
 
-async function fetchFiles() {
+async function fetchFiles(path = '') {
   try {
-    const res = await fetch('/api/list');
+    const res = await fetch(path ? `/api/list?path=${encodeURIComponent(path)}` : '/api/list');
     if (!res.ok) throw new Error('ファイル一覧取得に失敗しました');
-    const data = await res.json(); // データの形式は { files: [{ name: 'file1.txt', type: 'file', size: 1234, mtime: '2023-10-01T12:00:00Z' }, ...] }
+    const data = await res.json();
+    currentPath = path;
     renderFiles(data.files || []);
-    renderBreadcrumb([]); // ルート
+    renderBreadcrumb(path ? path.split('/').filter(Boolean) : []); // ルート
+    renderParentButton();
     fileTable.style.display = '';
     errorDiv.style.display = 'none';
   } catch (e) {
@@ -67,8 +70,10 @@ window.changeDir = async function(path) {
     const res = await fetch(`/api/list?path=${encodeURIComponent(path)}`);
     if (!res.ok) throw new Error('ディレクトリ取得に失敗しました');
     const data = await res.json();
+    currentPath = path;
     renderFiles(data.files || []);
     renderBreadcrumb(path.split('/').filter(Boolean));
+    renderParentButton();
     fileTable.style.display = '';
     errorDiv.style.display = 'none';
   } catch (e) {
@@ -113,16 +118,32 @@ async function updateLoginStatus() {
       loginStatusSpan.style.fontWeight = 'bold';
       authArea.appendChild(loginStatusSpan);
     }
+    const oldRefreshBtn = document.getElementById('refresh-list-btn');
+    if (oldRefreshBtn) oldRefreshBtn.remove();
     if (data.authenticated) {
       loginStatusSpan.textContent = `ログイン中: ${data.name || ''}`;
-      // ログインボタン非表示、ログアウトボタン表示
       document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra').forEach(btn => btn.style.display = 'none');
       logoutBtn.style.display = '';
-      fetchFiles();
+      const container = document.querySelector('.container');
+      const breadcrumb = document.getElementById('breadcrumb');
+      const refreshBtn = document.createElement('button');
+      refreshBtn.id = 'refresh-list-btn';
+      refreshBtn.className = 'refresh-btn';
+      refreshBtn.innerHTML = '<span class="material-icons">refresh</span>ファイル一覧を更新する';
+      refreshBtn.addEventListener('click', () => fetchFiles(currentPath));
+      if (breadcrumb && breadcrumb.nextSibling) {
+        container.insertBefore(refreshBtn, breadcrumb.nextSibling);
+      } else {
+        container.appendChild(refreshBtn);
+      }
+      fileTable.style.display = '';
+      fetchFiles(currentPath);
     } else {
       loginStatusSpan.textContent = '未ログイン';
       document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra').forEach(btn => btn.style.display = '');
       logoutBtn.style.display = 'none';
+      const oldRefreshBtn2 = document.getElementById('refresh-list-btn');
+      if (oldRefreshBtn2) oldRefreshBtn2.remove();
       fileTable.style.display = 'none';
     }
   } catch (e) {
@@ -130,6 +151,30 @@ async function updateLoginStatus() {
   }
 }
 
+function renderParentButton() {
+  let btn = document.getElementById('parent-dir-btn');
+  if (btn) btn.remove();
+  if (!currentPath || currentPath === '') return;
+  const parts = currentPath.split('/').filter(Boolean);
+  if (parts.length === 0) return;
+  parts.pop();
+  const parentPath = parts.join('/');
+  btn = document.createElement('button');
+  btn.id = 'parent-dir-btn';
+  btn.className = 'refresh-btn';
+  btn.innerHTML = '<span class="material-icons">arrow_upward</span>親フォルダに戻る';
+  btn.onclick = () => changeDir(parentPath);
+  const container = document.querySelector('.container');
+  const breadcrumb = document.getElementById('breadcrumb');
+  if (breadcrumb && breadcrumb.nextSibling) {
+    container.insertBefore(btn, breadcrumb.nextSibling);
+  } else {
+    container.appendChild(btn);
+  }
+}
+
+// ...existing code...
+// fetchFiles, changeDir, updateLoginStatus から renderParentButton を呼ぶように
 window.onload = () => {
   updateLoginStatus();
 };

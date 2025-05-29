@@ -24,6 +24,30 @@
     .error { color: #d32f2f; margin: 1rem 0; }
     .breadcrumb-item { color: #1976d2; cursor: pointer; text-decoration: underline; margin-right: 0.2em; }
     .breadcrumb-item:last-child { color: #333; text-decoration: none; cursor: default; }
+    .refresh-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3em;
+      background: #1976d2;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      padding: 0.5em 1.2em;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 1rem;
+      box-shadow: 0 1px 4px #0001;
+      transition: background 0.2s, box-shadow 0.2s;
+    }
+    .refresh-btn:hover {
+      background: #1565c0;
+      box-shadow: 0 2px 8px #0002;
+    }
+    .refresh-btn .material-icons {
+      font-size: 1.2em;
+      vertical-align: middle;
+    }
     @media (max-width: 600px) {
       .container { padding: 0.5rem; }
       th, td { padding: 0.4rem; font-size: 0.95rem; }
@@ -43,6 +67,8 @@
     </div>
     <div id="error" class="error" style="display:none;"></div>
     <nav id="breadcrumb" style="margin-bottom:1rem; font-size:1rem;"></nav>
+    <!-- 親フォルダに戻るボタンはmain.jsで動的に追加 -->
+    <!-- ファイル一覧更新ボタンはmain.jsでログイン時のみ動的に追加 -->
     <table id="file-table" style="display:none;">
       <thead>
         <tr>
