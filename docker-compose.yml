@@ -18,12 +18,12 @@ services:
     hostname: 'gitlab.local'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://gitlab.local:8080'
+        external_url 'http://gitlab.local:8929'
         gitlab_rails['omniauth_enabled'] = true
     ports:
-      - "8080:8080"
+      - "8929:8929"
       - "2222:22"
-    shm_size: '256m'
+    shm_size: '2gb'
   hydra:
     image: oryd/hydra:v2.2.0
     ports:
