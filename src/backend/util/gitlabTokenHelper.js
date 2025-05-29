@@ -12,8 +12,8 @@ import fetch from 'node-fetch';
 export async function getGitLabToken(code, clientId, clientSecret, callbackUrl) {
   try {
     // 内部通信用のGitLab URLを使用
-    const gitlabUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
-    const tokenEndpoint = `${gitlabUrl}/oauth/token`;
+    const gitlabInternalUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
+    const tokenEndpoint = `${gitlabInternalUrl}/oauth/token`;
     
     console.log(`[gitlabTokenHelper] トークン取得リクエスト: ${tokenEndpoint}`);
     

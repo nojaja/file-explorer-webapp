@@ -2,6 +2,7 @@ import express from "express";
 import passport from "passport";
 import fetch from "node-fetch";
 import { getGitLabToken } from "../util/gitlabTokenHelper.js";
+import { getHydraToken, getHydraUserInfo, acceptLoginChallenge, acceptConsentChallenge } from "../util/hydraTokenHelper.js";
 
 const router = express.Router();
 
@@ -37,8 +38,8 @@ router.get("/gitlab", (req, res, next) => {
   
   // GitLab URL情報をセッションに保存（URL置換処理用）
   req.session.gitlabUrls = {
-    internalUrl: process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929',
-    browserUrl: process.env.GITLAB_URL || 'http://localhost:8929'
+    gitlabInternalUrl: process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929',
+    gitlabBrowserUrl: process.env.GITLAB_URL || 'http://localhost:8929'
   };
   console.log('[auth/gitlab] セッションにGitLab URL情報を保存:', req.session.gitlabUrls);
   
@@ -87,35 +88,11 @@ router.get("/login", async (req, res) => {
   try {
     // 簡易実装: 自動的にログインを受け入れる
     // 実際の実装では、ここでユーザー認証を行う
-    const hydraAdminUrl = process.env.HYDRA_ADMIN_URL || 'http://localhost:4445';
-    
-    // login challengeを受け入れる
-    const acceptResponse = await fetch(`${hydraAdminUrl}/admin/oauth2/auth/requests/login/accept?login_challenge=${loginChallenge}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        subject: 'test-user', // テストユーザー
-        remember: false,
-        remember_for: 0,
-        acr: '1'
-      })
-    });
-
-    if (!acceptResponse.ok) {
-      throw new Error(`Failed to accept login: ${acceptResponse.status}`);
-    }    const acceptData = await acceptResponse.json();
+    const acceptData = await acceptLoginChallenge(loginChallenge, 'test-user');
     console.log(`[auth/login] login受け入れ完了、リダイレクト先: ${acceptData.redirect_to}`);
     console.log(`[auth/login] acceptData:`, JSON.stringify(acceptData, null, 2));
     
-    // Docker内部URLをブラウザアクセス可能なURLに変換
-    const redirectUrl = acceptData.redirect_to.replace('http://hydra:4444', 'http://localhost:4444');
-    console.log(`[auth/login] 修正後リダイレクト先: ${redirectUrl}`);
-    console.log(`[auth/login] URL変換前: ${acceptData.redirect_to}`);
-    console.log(`[auth/login] URL変換後: ${redirectUrl}`);
-    
-    return res.redirect(redirectUrl);
+    return res.redirect(acceptData.redirect_to);
   } catch (error) {
     console.error(`[auth/login] エラー:`, error);
     return res.status(500).send(`Login error: ${error.message}`);
@@ -132,40 +109,12 @@ router.get("/consent", async (req, res) => {
   }
 
   try {
-    const hydraAdminUrl = process.env.HYDRA_ADMIN_URL || 'http://localhost:4445';
-    
-    // consent challengeを受け入れる
-    const acceptResponse = await fetch(`${hydraAdminUrl}/admin/oauth2/auth/requests/consent/accept?consent_challenge=${consentChallenge}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        grant_scope: ['openid', 'profile', 'email'],
-        grant_access_token_audience: [],
-        remember: false,
-        remember_for: 0,
-        session: {
-          id_token: {
-            'name': 'test-user'
-          }
-        }
-      })
-    });
-
-    if (!acceptResponse.ok) {
-      throw new Error(`Failed to accept consent: ${acceptResponse.status}`);
-    }    const acceptData = await acceptResponse.json();
+    // コンセントチャレンジを受け入れる
+    const acceptData = await acceptConsentChallenge(consentChallenge, ['openid', 'profile', 'email']);
     console.log(`[auth/consent] consent受け入れ完了、リダイレクト先: ${acceptData.redirect_to}`);
     console.log(`[auth/consent] acceptData:`, JSON.stringify(acceptData, null, 2));
-    
-    // Docker内部URLをブラウザアクセス可能なURLに変更
-    const redirectUrl = acceptData.redirect_to.replace('http://hydra:4444', 'http://localhost:4444');
-    console.log(`[auth/consent] 修正後リダイレクト先: ${redirectUrl}`);
-    console.log(`[auth/consent] URL変換前: ${acceptData.redirect_to}`);
-    console.log(`[auth/consent] URL変換後: ${redirectUrl}`);
-    
-    return res.redirect(redirectUrl);
+        
+    return res.redirect(acceptData.redirect_to);
   } catch (error) {
     console.error(`[auth/consent] エラー:`, error);
     return res.status(500).send(`Consent error: ${error.message}`);
@@ -178,11 +127,12 @@ router.get("/callback", async (req, res, next) => {
   console.log(`[auth/callback] セッションID: ${req.session?.id}`);
   console.log(`[auth/callback] クエリパラメータ:`, req.query);
   console.log(`[auth/callback] OAuth2States:`, req.session?.oauth2States);
-  
-  // GitLab認証コードの確認
+    // 認可コードの確認
   const code = req.query.code;
+  const state = req.query.state;
   const isGitLabCallback = req.session?.gitlabUrls && code;
-
+  const isHydraCallback = code && !isGitLabCallback; // GitLabでなければHydraと判断
+  
   // GitLab認証の場合、カスタム処理
   if (isGitLabCallback) {
     try {
@@ -197,8 +147,8 @@ router.get("/callback", async (req, res, next) => {
       );
       
       // GitLabユーザー情報を取得
-      const gitlabUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
-      const userResponse = await fetch(`${gitlabUrl}/api/v4/user`, {
+      const gitlabInternalUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
+      const userResponse = await fetch(`${gitlabInternalUrl}/api/v4/user`, {
         headers: {
           'Authorization': `Bearer ${tokenData.access_token}`
         }
@@ -224,45 +174,49 @@ router.get("/callback", async (req, res, next) => {
       return res.redirect("/?error=gitlab_auth");
     }
   }
-  
-  // stateパラメータの存在確認
-  const state = req.query.state;
-  if (state) {
-    console.log(`[auth/callback] stateパラメータ: ${state}`);
-  } else {
-    console.warn(`[auth/callback] stateパラメータがありません`);
-  }
-  
-  // GitLab URLの置換処理
-  // GitLabからのリダイレクトURLに含まれるコンテナ名を修正
-  const originalUrl = req.originalUrl;
-  const queryString = req.url.split('?')[1] || '';
-  const queryParams = new URLSearchParams(queryString);
-  
-  // リダイレクトURLがクエリパラメータに含まれている場合の処理
-  for (const [key, value] of queryParams.entries()) {
-    if (value.includes('gitlab:8929')) {
-      console.log(`[auth/callback] ${key}パラメータにGitLab内部URLを検出: ${value}`);
-      const correctedValue = value.replace(/gitlab:8929/g, 'localhost:8929');
-      queryParams.set(key, correctedValue);
-      console.log(`[auth/callback] 修正後${key}パラメータ: ${correctedValue}`);
+  // Hydraコールバックで認可コードがある場合、手動でトークン取得を試みる
+  else if (isHydraCallback) {
+    try {
+      console.log(`[auth/callback] Hydra認証コード検出: ${code.substring(0, 10)}...`);
       
-      // 修正したクエリパラメータでリダイレクト
-      const newUrl = `${req.path}?${queryParams.toString()}`;
-      console.log(`[auth/callback] 修正後URL: ${newUrl}`);
-      return res.redirect(newUrl);
+      // stateパラメータの存在確認
+      if (state) {
+        console.log(`[auth/callback] stateパラメータ: ${state}`);
+      } else {
+        console.warn(`[auth/callback] stateパラメータがありません`);
+      }
+      
+      // Hydraトークンを手動取得
+      const tokenData = await getHydraToken(
+        code,
+        process.env.HYDRA_CLIENT_ID,
+        process.env.HYDRA_CLIENT_SECRET,
+        process.env.HYDRA_CALLBACK_URL,
+        state
+      );
+      
+      // ユーザー情報を取得
+      const userData = await getHydraUserInfo(tokenData.access_token);
+      console.log(`[auth/callback] Hydraユーザー情報取得成功:`, userData);
+      
+      // セッションにユーザー情報を保存
+      req.session.user = userData;
+      req.session.accessToken = tokenData.access_token;
+      req.session.refreshToken = tokenData.refresh_token;
+      req.session.idToken = tokenData.id_token;
+      req.session.isAuthenticated = true;
+      
+      // ログイン後のリダイレクト
+      console.log(`[auth/callback] Hydra認証成功、トップページにリダイレクト`);
+      return res.redirect('/');
+    } catch (error) {
+      console.error(`[auth/callback] Hydra認証エラー:`, error);
+      // エラーの場合、Passportのフローにフォールバック
+      console.log(`[auth/callback] Passport認証にフォールバック`);
     }
   }
-  
-  // URLそのものにコンテナ名が含まれている場合の処理
-  if (originalUrl && originalUrl.includes('gitlab:8929')) {
-    console.log(`[auth/callback] GitLab内部URLを検出: ${originalUrl}`);
-    const correctedUrl = originalUrl.replace(/gitlab:8929/g, 'localhost:8929');
-    console.log(`[auth/callback] 修正後URL: ${correctedUrl}`);
-    return res.redirect(correctedUrl);
-  }
-  
-  // Hydra認証（デフォルト）
+
+  // Hydra認証（Passport使用 - フォールバック）
   passport.authenticate(["hydra"], {
     failureRedirect: "/?error=auth"
   })(req, res, (err) => {
@@ -301,6 +255,19 @@ router.get("/status", (req, res) => {
   // カスタム認証処理でログインした場合のチェック
   if (req.session?.isAuthenticated && req.session?.user) {
     const user = req.session.user;
+    
+    // カスタムHydra認証によるユーザー情報の場合
+    if (req.session.idToken) {
+      return res.json({ 
+        authenticated: true, 
+        name: user.name || "ログイン中",
+        provider: 'hydra',
+        email: user.email,
+        custom: true
+      });
+    }
+    
+    // カスタムGitLab認証によるユーザー情報の場合
     return res.json({ 
       authenticated: true, 
       name: user.name || user.username || "ログイン中",
@@ -354,51 +321,4 @@ router.get("/debug", (req, res) => {
     user: req.user || null
   });
 });
-
-// GitLabのURLを変換する関数（内部URL→ブラウザURL）
-function convertGitlabUrlForBrowser(url) {
-  if (!url || typeof url !== 'string') return url;
-  
-  const gitlabInternalUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
-  const gitlabBrowserUrl = process.env.GITLAB_URL || 'http://localhost:8929';
-  
-  if (url.includes(gitlabInternalUrl)) {
-    console.log(`[gitlab] URLの変換: ${url} → ${url.replace(gitlabInternalUrl, gitlabBrowserUrl)}`);
-    return url.replace(gitlabInternalUrl, gitlabBrowserUrl);
-  }
-  
-  return url;
-}
-
-// GitLabユーザー情報取得
-async function fetchGitLabUserInfo(accessToken) {
-  try {
-    // サーバー間通信にはGITLAB_URLを使用
-    const gitlabUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
-    const userResponse = await fetch(`${gitlabUrl}/api/v4/user`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
-    if (!userResponse.ok) {
-      console.error(`[gitlab] ユーザー情報取得エラー: ${userResponse.status}`);
-      return null;
-    }
-    
-    const userData = await userResponse.json();
-    console.log('[gitlab] ユーザー情報取得成功:', {
-      id: userData.id,
-      username: userData.username,
-      name: userData.name,
-      email: userData.email
-    });
-    
-    return userData;
-  } catch (error) {
-    console.error('[gitlab] ユーザー情報取得例外:', error);
-    return null;
-  }
-}
-
 export default router;
