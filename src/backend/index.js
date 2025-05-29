@@ -151,7 +151,7 @@ passport.use(new GitLabStrategy({
 // hydra OAUTH2
 passport.use("hydra", new OAuth2Strategy({
   authorizationURL: process.env.HYDRA_AUTH_URL, // ブラウザアクセス用URL
-  tokenURL: process.env.HYDRA_TOKEN_URL, // 外部アクセス用URL（localhost:4444）
+  tokenURL: process.env.HYDRA_TOKEN_URL_INTERNAL || process.env.HYDRA_TOKEN_URL, // Docker環境ではhydra:4444を優先
   clientID: process.env.HYDRA_CLIENT_ID,
   clientSecret: process.env.HYDRA_CLIENT_SECRET,
   callbackURL: process.env.HYDRA_CALLBACK_URL,
