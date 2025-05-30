@@ -60,9 +60,9 @@
   <div class="container">
     <div id="auth-area">
       <!-- ログイン状態・ユーザー名はmain.jsで動的に追加 -->
-      <button class="login-btn github" onclick="location.href='/auth/github'">GitHubでログイン</button>
-      <button class="login-btn gitlab" onclick="location.href='/auth/gitlab'">GitLabでログイン</button>
-      <button class="login-btn hydra" onclick="location.href='/auth/hydra'">hydraでログイン</button>
+      <button class="login-btn github" onclick="location.href='/auth/github'" style="display: none;">GitHubでログイン</button>
+      <button class="login-btn gitlab" onclick="location.href='/auth/gitlab'" style="display: none;">GitLabでログイン</button>
+      <button class="login-btn hydra" onclick="location.href='/auth/hydra'" style="display: none;">hydraでログイン</button>
       <button class="login-btn" id="logout-btn" style="display:none; background:#d32f2f;" onclick="logout()">ログアウト</button>
     </div>
     <div id="error" class="error" style="display:none;"></div>
