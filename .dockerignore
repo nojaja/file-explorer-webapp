@@ -1,0 +1,26 @@
+# Node.js
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# Git
+.git
+.gitignore
+
+# テストファイル
+test-results
+playwright-report
+
+# GitLab関連のフォルダを除外
+gitlab_etc/
+gitlab_log/
+gitlab_opt/
+
+data/
+doc/
