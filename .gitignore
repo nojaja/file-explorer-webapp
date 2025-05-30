@@ -136,3 +136,4 @@ dist
 .pnp.*
 /.github/instructions
 /copilot_docs
+/data/gitlab

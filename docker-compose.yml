@@ -22,9 +22,9 @@ services:
         external_url 'http://gitlab.local:8929'
         gitlab_rails['omniauth_enabled'] = true
     volumes:
-      - ./gitlab_etc:/etc/gitlab
-      - ./gitlab_log:/var/log/gitlab
-      - ./gitlab_opt:/var/opt/gitlab
+      - ./data/gitlab/etc:/etc/gitlab
+      - ./data/gitlab/log:/var/log/gitlab
+      - ./data/gitlab/opt:/var/opt/gitlab
     ports:
       - "8929:8929"
       - "2222:22"
