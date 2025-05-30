@@ -7,11 +7,11 @@ export function hydraUrlReplaceMiddleware(req, res, next) {
   const originalRedirect = res.redirect;
   
   // Hydra URLの情報を取得
-  const hydraAuthContainerUrl = process.env.HYDRA_AUTH_URL_INTERNAL || 'http://hydra:4444';
-  const hydraAuthBrowserUrl = process.env.HYDRA_AUTH_URL || 'http://localhost:4444';
+  const hydraAuthContainerUrl = global.authConfig.hydra.HYDRA_AUTH_URL_INTERNAL;// 'http://hydra:4444';
+  const hydraAuthBrowserUrl = global.authConfig.hydra.HYDRA_AUTH_URL;//  'http://localhost:4444';
   
-  const hydraAdminContainerUrl = process.env.HYDRA_ADMIN_URL || 'http://hydra:4445';
-  const hydraAdminBrowserUrl = hydraAdminContainerUrl.replace('hydra:4445', 'localhost:4445');
+  const hydraAdminContainerUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;//  'http://hydra:4445';
+  const hydraAdminBrowserUrl = global.authConfig.hydra.HYDRA_ADMIN_URL;//'localhost:4445'
   
   // クエリパラメータの処理
   const processUrl = (url) => {

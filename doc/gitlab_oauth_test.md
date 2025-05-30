@@ -5,6 +5,8 @@
 docker-compose up -d gitlab
 ```
 - 初回起動は数分かかるのだ。
+- GitLab CEのDockerイメージ（gitlab/gitlab-ce）を初めて起動した場合、管理者ユーザー（root）の初回パスワードは自動生成され、コンテナ内の特定のファイルに保存されます。
+  `docker compose exec <サービス名> cat /etc/gitlab/initial_root_password`
 - http://localhost:8929 でGitlabにアクセスできるのだ。
 
 ## 2. GitlabでOAUTHアプリ登録

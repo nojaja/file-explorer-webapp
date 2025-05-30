@@ -13,6 +13,7 @@ services:
       - "3000:3000"
     depends_on:
       - gitlab
+      - hydra
   gitlab:
     image: gitlab/gitlab-ce:latest
     hostname: 'gitlab.local'
@@ -20,6 +21,10 @@ services:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://gitlab.local:8929'
         gitlab_rails['omniauth_enabled'] = true
+    volumes:
+      - ./gitlab_etc:/etc/gitlab
+      - ./gitlab_log:/var/log/gitlab
+      - ./gitlab_opt:/var/opt/gitlab
     ports:
       - "8929:8929"
       - "2222:22"

@@ -112,6 +112,14 @@ async function updateLoginStatus() {
     const res = await fetch('/auth/status');
     const data = await res.json();
     
+    // 認証設定を取得
+    const authConfig = data.authConfig || {
+      github: false,
+      gitlab: false,
+      hydra: false,
+      noAuthRequired: false
+    };
+    
     // ユーザー情報表示領域を更新
     if (!loginStatusSpan) {
       loginStatusSpan = document.createElement('div');
@@ -128,6 +136,38 @@ async function updateLoginStatus() {
     const oldRefreshBtn = document.getElementById('refresh-list-btn');
     if (oldRefreshBtn) oldRefreshBtn.remove();
     
+    // 認証なしモードの場合
+    if (authConfig.noAuthRequired) {
+      // ログインボタンを全て非表示
+      document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra, #logout-btn').forEach(btn => btn.style.display = 'none');
+      
+      // ステータス表示
+      loginStatusSpan.innerHTML = `
+        <span style="display:flex; align-items:center;">
+          認証なしモード
+        </span>
+      `;
+      
+      // ファイル一覧の更新ボタンと一覧表示
+      const container = document.querySelector('.container');
+      const breadcrumb = document.getElementById('breadcrumb');
+      const refreshBtn = document.createElement('button');
+      refreshBtn.id = 'refresh-list-btn';
+      refreshBtn.className = 'refresh-btn';
+      refreshBtn.innerHTML = '<span class="material-icons">refresh</span>ファイル一覧を更新する';
+      refreshBtn.addEventListener('click', () => fetchFiles(currentPath));
+      
+      if (breadcrumb && breadcrumb.nextSibling) {
+        container.insertBefore(refreshBtn, breadcrumb.nextSibling);
+      } else {
+        container.appendChild(refreshBtn);
+      }
+      
+      fileTable.style.display = '';
+      fetchFiles(currentPath);
+      return;
+    }
+    
     if (data.authenticated) {
       // プロバイダーバッジを追加
       const providerName = data.provider || 'unknown';
@@ -135,6 +175,7 @@ async function updateLoginStatus() {
         'github': 'GitHub',
         'gitlab': 'GitLab',
         'hydra': 'Hydra',
+        'none': '認証なし',
         'unknown': 'OAuth'
       }[providerName] || 'OAuth';
       
@@ -149,6 +190,7 @@ async function updateLoginStatus() {
         'github': '#333',
         'gitlab': '#fc6d26',
         'hydra': '#009688',
+        'none': '#4caf50',
         'unknown': '#757575'
       }[providerName] || '#757575';
       
@@ -162,8 +204,13 @@ async function updateLoginStatus() {
         </span>
       `;
       
+      // ログインボタンの表示/非表示
       document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra').forEach(btn => btn.style.display = 'none');
-      logoutBtn.style.display = '';
+      if (providerName !== 'none') {
+        logoutBtn.style.display = '';
+      } else {
+        logoutBtn.style.display = 'none';
+      }
       
       const container = document.querySelector('.container');
       const breadcrumb = document.getElementById('breadcrumb');
@@ -183,7 +230,11 @@ async function updateLoginStatus() {
       fetchFiles(currentPath);
     } else {
       loginStatusSpan.textContent = '未ログイン';
-      document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra').forEach(btn => btn.style.display = '');
+      
+      // 設定された認証方法のみ表示
+      document.querySelectorAll('.login-btn.github').forEach(btn => btn.style.display = authConfig.github ? '' : 'none');
+      document.querySelectorAll('.login-btn.gitlab').forEach(btn => btn.style.display = authConfig.gitlab ? '' : 'none');
+      document.querySelectorAll('.login-btn.hydra').forEach(btn => btn.style.display = authConfig.hydra ? '' : 'none');
       logoutBtn.style.display = 'none';
       
       const oldRefreshBtn2 = document.getElementById('refresh-list-btn');
