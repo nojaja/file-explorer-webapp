@@ -7,7 +7,4 @@ const router = express.Router();
 // DELETE /api/delete/file
 router.delete("/file", ensureAuthenticated, deleteFile);
 
-// DELETE /api/delete/folder
-router.delete("/folder", ensureAuthenticated, deleteFolder);
-
 export default router;

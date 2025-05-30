@@ -31,17 +31,25 @@ function renderFiles(files) {
     const tr = document.createElement('tr');
     const isDir = f.type === 'dir';
     tr.innerHTML = `
-      <td>${isDir ? '<span class="material-icons" style="vertical-align:middle;color:#ffa000;">folder</span> ' : '<span class="material-icons" style="vertical-align:middle;color:#1976d2;">insert_drive_file</span> '}
-        ${isDir ? `<span style='cursor:pointer;color:#1976d2;text-decoration:underline;' onclick='changeDir("${f.name}")'>${f.name}</span>` : f.name}
+      <td>${
+        isDir ? '<span class="material-icons" style="vertical-align:middle;color:#ffa000;">folder</span> '
+              : '<span class="material-icons" style="vertical-align:middle;color:#1976d2;">insert_drive_file</span> '
+      }
+        ${
+          isDir ? `<span style='cursor:pointer;color:#1976d2;text-decoration:underline;' onclick='changeDir("${f.path}")'>${f.name}</span>`
+                : f.name
+        }
       </td>
       <td>${isDir ? 'フォルダ' : 'ファイル'}</td>
       <td>${f.size ?? ''}</td>
       <td>${f.mtime ?? ''}</td>
       <td class="actions">
-        ${isDir 
-          ? `<button class="icon-btn" title="zipダウンロード" onclick="downloadZip('${f.name}')"><span class="material-icons">archive</span></button>` 
-          : `<a class="download-link icon-btn" title="ダウンロード" href="/api/download/file?path=${encodeURIComponent(f.name)}" download><span class="material-icons">download</span></a>`}
-        <button class="icon-btn" title="削除" onclick="deleteFile('${f.name}')"><span class="material-icons">delete</span></button>
+        ${
+          isDir 
+          ? `<a class="icon-btn" title="zipダウンロード" href="/api/download/folder?path=${encodeURIComponent(f.path)}" download><span class="material-icons">archive</span></a>` 
+          : `<a class="download-link icon-btn" title="ダウンロード" href="/api/download/file?path=${encodeURIComponent(f.path)}" download><span class="material-icons">download</span></a>`
+        }
+        <button class="icon-btn" title="削除" onclick="deleteFile('${f.path}')"><span class="material-icons">delete</span></button>
       </td>
     `;
     fileList.appendChild(tr);
@@ -55,10 +63,11 @@ function renderBreadcrumb(pathArr) {
   let path = '';
   pathArr.forEach((p, i) => {
     path += (i > 0 ? '/' : '') + p;
+    const jumppath = String(path);
     const span = document.createElement('span');
     span.textContent = p || 'root';
     span.className = 'breadcrumb-item';
-    span.onclick = () => changeDir(path);
+    span.onclick = () => changeDir(jumppath);
     bc.appendChild(span);
     if (i < pathArr.length - 1) bc.appendChild(document.createTextNode(' / '));
   });
@@ -83,17 +92,9 @@ window.changeDir = async function(path) {
   }
 };
 
-window.downloadFile = async function(name) {
-  window.location = `/api/download?name=${encodeURIComponent(name)}`;
-};
-
-window.downloadZip = async function(name) {
-  window.location = `/api/download?name=${encodeURIComponent(name)}&zip=1`;
-};
-
-window.deleteFile = async function(name) {
-  if (!confirm(`${name} を削除しますか？`)) return;
-  const res = await fetch(`/api/delete?name=${encodeURIComponent(name)}`, { method: 'DELETE' });
+window.deleteFile = async function(path) {
+  if (!confirm(`${path} を削除しますか？`)) return;
+  const res = await fetch(`/api/delete/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
   if (res.ok) fetchFiles();
   else {
     const err = await res.json();
