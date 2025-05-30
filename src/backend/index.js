@@ -84,6 +84,10 @@ app.use(gitlabUrlReplaceMiddleware);
 // Hydra URL置換ミドルウェア
 app.use(hydraUrlReplaceMiddleware);
 
+// 静的ファイルの配信
+// DockerのランタイムステージのWORKDIR /app を基準にする
+// process.cwd() は /app を指す想定
+app.use(express.static(path.join(process.cwd(), "src/frontend")));
 
 // JSONボディ
 app.use(express.json());
@@ -179,48 +183,56 @@ app.get("*", (req, res) => {
 });
 
 // Gitlab OAUTH
-passport.use(new GitLabStrategy({
-  clientID: global.authConfig.gitlab.GITLAB_CLIENT_ID,
-  clientSecret: global.authConfig.gitlab.GITLAB_CLIENT_SECRET,
-  callbackURL: global.authConfig.gitlab.OAUTH_CALLBACK_URL,
-  baseURL: global.authConfig.gitlab.GITLAB_URL, // ブラウザ向けURLを使用（認証画面表示用）
-  tokenURL: global.authConfig.gitlab.GITLAB_TOKEN_URL_INTERNAL, // トークン取得用のエンドポイント（内部URL使用）
-  authorizationURL: global.authConfig.gitlab.GITLAB_URL + '/oauth/authorize', // 認証画面URL（ブラウザ向けURL使用）
-}, (accessToken, refreshToken, profile, done) => {
-  console.log('[gitlab passport] 認証成功:', {
-    accessToken: accessToken.substring(0, 20) + '...',
-    refreshToken: refreshToken ? refreshToken.substring(0, 20) + '...' : 'なし',
-    profile: {
-      id: profile.id,
-      username: profile.username,
-      displayName: profile.displayName
-    }
-  });
-  return done(null, profile);
-}));
+if (global.authConfig && global.authConfig.gitlab && global.authConfig.gitlab.GITLAB_CLIENT_ID) {
+  passport.use(new GitLabStrategy({
+    clientID: global.authConfig.gitlab.GITLAB_CLIENT_ID,
+    clientSecret: global.authConfig.gitlab.GITLAB_CLIENT_SECRET,
+    callbackURL: global.authConfig.gitlab.OAUTH_CALLBACK_URL,
+    baseURL: global.authConfig.gitlab.GITLAB_URL, // ブラウザ向けURLを使用（認証画面表示用）
+    tokenURL: global.authConfig.gitlab.GITLAB_TOKEN_URL_INTERNAL, // トークン取得用のエンドポイント（内部URL使用）
+    authorizationURL: global.authConfig.gitlab.GITLAB_URL + '/oauth/authorize', // 認証画面URL（ブラウザ向けURL使用）
+  }, (accessToken, refreshToken, profile, done) => {
+    console.log('[gitlab passport] 認証成功:', {
+      accessToken: accessToken.substring(0, 20) + '...',
+      refreshToken: refreshToken ? refreshToken.substring(0, 20) + '...' : 'なし',
+      profile: {
+        id: profile.id,
+        username: profile.username,
+        displayName: profile.displayName
+      }
+    });
+    return done(null, profile);
+  }));
+} else {
+  console.log('[gitlab passport] GitLab認証は設定されていません。clientIDが見つかりません。');
+}
 
 // hydra OAUTH2
-passport.use("hydra", new OAuth2Strategy({
-  authorizationURL: global.authConfig.hydra.HYDRA_AUTH_URL, // ブラウザアクセス用URL
-  tokenURL: global.authConfig.hydra.HYDRA_TOKEN_URL_INTERNAL, // Docker環境ではhydra:4444を優先
-  clientID: global.authConfig.hydra.HYDRA_CLIENT_ID,
-  clientSecret: global.authConfig.hydra.HYDRA_CLIENT_SECRET,
-  callbackURL: global.authConfig.hydra.HYDRA_CALLBACK_URL,
-  scope: global.authConfig.hydra.HYDRA_SCOPE || "openid profile email",
-  skipUserProfile: true, // UserProfile取得をスキップ
-  state: true, // CSRF保護を有効化
-  passReqToCallback: true // reqオブジェクトをコールバックに渡す
-}, (req, accessToken, refreshToken, profile, done) => {
-  // hydraはprofile情報をid_tokenで返すため、ここでprofile取得処理を追加してもよい
-  // 必要に応じてjwtデコード等でprofileを構築
-  console.log('[hydra passport] 認証成功', {
-    accessToken: typeof accessToken === 'string' ? accessToken.substring(0, 20) + '...' : String(accessToken).substring(0, 20) + '...',
-    refreshToken: typeof refreshToken === 'string' ? refreshToken.substring(0, 20) + '...' : String(refreshToken || 'none').substring(0, 20) + '...',
-    refreshTokenType: typeof refreshToken
-  });
-  console.log('[hydra passport] セッションID:', req.session?.id);
-  return done(null, { accessToken, refreshToken, profile });
-}));
+if (global.authConfig && global.authConfig.hydra && global.authConfig.hydra.HYDRA_CLIENT_ID) {
+  passport.use("hydra", new OAuth2Strategy({
+    authorizationURL: global.authConfig.hydra.HYDRA_AUTH_URL, // ブラウザアクセス用URL
+    tokenURL: global.authConfig.hydra.HYDRA_TOKEN_URL_INTERNAL, // Docker環境ではhydra:4444を優先
+    clientID: global.authConfig.hydra.HYDRA_CLIENT_ID,
+    clientSecret: global.authConfig.hydra.HYDRA_CLIENT_SECRET,
+    callbackURL: global.authConfig.hydra.HYDRA_CALLBACK_URL,
+    scope: global.authConfig.hydra.HYDRA_SCOPE || "openid profile email",
+    skipUserProfile: true, // UserProfile取得をスキップ
+    state: true, // CSRF保護を有効化
+    passReqToCallback: true // reqオブジェクトをコールバックに渡す
+  }, (req, accessToken, refreshToken, profile, done) => {
+    // hydraはprofile情報をid_tokenで返すため、ここでprofile取得処理を追加してもよい
+    // 必要に応じてjwtデコード等でprofileを構築
+    console.log('[hydra passport] 認証成功', {
+      accessToken: typeof accessToken === 'string' ? accessToken.substring(0, 20) + '...' : String(accessToken).substring(0, 20) + '...',
+      refreshToken: typeof refreshToken === 'string' ? refreshToken.substring(0, 20) + '...' : String(refreshToken || 'none').substring(0, 20) + '...',
+      refreshTokenType: typeof refreshToken
+    });
+    console.log('[hydra passport] セッションID:', req.session?.id);
+    return done(null, { accessToken, refreshToken, profile });
+  }));
+} else {
+  console.log('[hydra passport] Hydra認証は設定されていません。clientIDが見つかりません。');
+}
 
 passport.serializeUser((user, done) => {
   done(null, user);
@@ -235,6 +247,6 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: "サーバ内部エラーが発生しました" });
 });
 
-app.listen(PORT, () => {
-  console.log(`サーバ起動: http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`サーバ起動: http://0.0.0.0:${PORT}`);
 });

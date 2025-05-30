@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "description": "Web UIでファイル・フォルダ操作ができるNode.jsアプリ（Docker対応）",
   "main": "src/backend/index.js",
-  "type": "module",
   "scripts": {
     "start": "node src/backend/index.js",
     "build": "webpack",
+    "build:backend": "webpack --config webpack.backend.config.js",
     "test": "jest",
     "test:e2e": "playwright test"
   },
