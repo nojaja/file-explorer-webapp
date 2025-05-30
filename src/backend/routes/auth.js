@@ -1,7 +1,6 @@
 import express from "express";
 import passport from "passport";
-import fetch from "node-fetch";
-import { getGitLabToken } from "../util/gitlabTokenHelper.js";
+import { getGitLabToken, getGitLabUserInfo } from "../util/gitlabTokenHelper.js";
 import { getHydraToken, getHydraUserInfo, acceptLoginChallenge, acceptConsentChallenge } from "../util/hydraTokenHelper.js";
 
 const router = express.Router();
@@ -32,14 +31,14 @@ router.get("/gitlab", (req, res, next) => {
   
   // GitLab URL情報をログ出力（デバッグ用）
   console.log('[auth/gitlab] GitLab URL設定:', {
-    GITLAB_URL_INTERNAL: process.env.GITLAB_URL_INTERNAL,
-    GITLAB_URL: process.env.GITLAB_URL
+    GITLAB_URL_INTERNAL: global.authConfig.gitlab.GITLAB_URL_INTERNAL,
+    GITLAB_URL: global.authConfig.gitlab.GITLAB_URL
   });
   
   // GitLab URL情報をセッションに保存（URL置換処理用）
   req.session.gitlabUrls = {
-    gitlabInternalUrl: process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929',
-    gitlabBrowserUrl: process.env.GITLAB_URL || 'http://localhost:8929'
+    gitlabInternalUrl: global.authConfig.gitlab.GITLAB_URL_INTERNAL,
+    gitlabBrowserUrl: global.authConfig.gitlab.GITLAB_URL
   };
   console.log('[auth/gitlab] セッションにGitLab URL情報を保存:', req.session.gitlabUrls);
   
@@ -141,24 +140,12 @@ router.get("/callback", async (req, res, next) => {
       // GitLabトークンを取得
       const tokenData = await getGitLabToken(
         code,
-        process.env.GITLAB_CLIENT_ID,
-        process.env.GITLAB_CLIENT_SECRET,
-        process.env.OAUTH_CALLBACK_URL
+        global.authConfig.gitlab.GITLAB_CLIENT_ID,
+        global.authConfig.gitlab.GITLAB_CLIENT_SECRET,
+        global.authConfig.gitlab.OAUTH_CALLBACK_URL
       );
-      
-      // GitLabユーザー情報を取得
-      const gitlabInternalUrl = process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929';
-      const userResponse = await fetch(`${gitlabInternalUrl}/api/v4/user`, {
-        headers: {
-          'Authorization': `Bearer ${tokenData.access_token}`
-        }
-      });
-      
-      if (!userResponse.ok) {
-        throw new Error(`GitLabユーザー情報取得失敗: ${userResponse.status}`);
-      }
-      
-      const userData = await userResponse.json();
+        // GitLabユーザー情報を取得
+      const userData = await getGitLabUserInfo(tokenData.access_token);
       console.log(`[auth/callback] GitLabユーザー情報取得成功: ${userData.name}`);
       
       // セッションにユーザー情報を保存
@@ -189,9 +176,9 @@ router.get("/callback", async (req, res, next) => {
       // Hydraトークンを手動取得
       const tokenData = await getHydraToken(
         code,
-        process.env.HYDRA_CLIENT_ID,
-        process.env.HYDRA_CLIENT_SECRET,
-        process.env.HYDRA_CALLBACK_URL,
+        global.authConfig.hydra.HYDRA_CLIENT_ID,
+        global.authConfig.hydra.HYDRA_CLIENT_SECRET,
+        global.authConfig.hydra.HYDRA_CALLBACK_URL,
         state
       );
       
@@ -252,43 +239,53 @@ router.get("/logout", (req, res) => {
 
 // ログイン状態確認API
 router.get("/status", (req, res) => {
+  // グローバルスコープから認証設定を参照
+  
+  // 認証なしモードの場合
+  if (global.authList.noAuthRequired) {
+    return res.json({ 
+      authenticated: true, 
+      name: "ゲスト", 
+      provider: 'none',
+      authConfig: global.authList
+    });
+  }
+  
   // カスタム認証処理でログインした場合のチェック
   if (req.session?.isAuthenticated && req.session?.user) {
-    const user = req.session.user;
-    
-    // カスタムHydra認証によるユーザー情報の場合
+    const user = req.session.user;    // カスタムHydra認証によるユーザー情報の場合
     if (req.session.idToken) {
       return res.json({ 
         authenticated: true, 
         name: user.name || "ログイン中",
         provider: 'hydra',
         email: user.email,
-        custom: true
+        custom: true,
+        authConfig: global.authList
       });
     }
-    
-    // カスタムGitLab認証によるユーザー情報の場合
+      // カスタムGitLab認証によるユーザー情報の場合
     return res.json({ 
       authenticated: true, 
       name: user.name || user.username || "ログイン中",
       provider: 'gitlab',
       avatar: user.avatar_url,
-      custom: true
+      custom: true,
+      authConfig: global.authList
     });
   }
   
   // 通常のPassport認証チェック
   if (req.isAuthenticated && req.isAuthenticated()) {
     // passport-github2/gitlab2はprofile.displayName, hydraはprofile等
-    const user = req.user || {};
-    
-    // GitLabの場合
+    const user = req.user || {};    // GitLabの場合
     if (user._json && user._json.name) {
       return res.json({ 
         authenticated: true, 
         name: user._json.name || user.username,
         provider: 'gitlab',
-        avatar: user._json.avatar_url
+        avatar: user._json.avatar_url,
+        authConfig: global.authList
       });
     }
     
@@ -297,16 +294,24 @@ router.get("/status", (req, res) => {
       return res.json({
         authenticated: true,
         name: user.profile?.name || user.profile?.preferred_username || "ログイン中",
-        provider: 'hydra'
+        provider: 'hydra',
+        authConfig: global.authList
       });
     }
     
     // GitHub/その他の場合
     let name = user.displayName || user.username || "ログイン中";
     let provider = user.provider || 'unknown';
-    res.json({ authenticated: true, name, provider });
+    res.json({ 
+      authenticated: true, 
+      name,      provider,
+      authConfig: global.authList
+    });
   } else {
-    res.json({ authenticated: false });
+    res.json({ 
+      authenticated: false,
+      authConfig: global.authList
+    });
   }
 });
 

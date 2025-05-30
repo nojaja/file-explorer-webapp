@@ -1,4 +1,10 @@
 export function ensureAuthenticated(req, res, next) {
+  // グローバル認証設定を参照
+  // 認証なしモードの場合は常にアクセス許可
+  if (global.authList && global.authList.noAuthRequired) {
+    return next();
+  }
+  
   if (process.env.NODE_ENV === 'test') {
     // テスト環境では認証バイパス
     return next();
