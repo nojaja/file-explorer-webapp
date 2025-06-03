@@ -106,10 +106,15 @@ router.get("/consent", async (req, res) => {
   if (!consentChallenge) {
     return res.status(400).send("consent_challenge parameter is required");
   }
-
   try {
+    // テストユーザー情報を準備
+    const testUserInfo = {
+      username: 'testuser',
+      email: 'testuser@example.com'
+    };
+    
     // コンセントチャレンジを受け入れる
-    const acceptData = await acceptConsentChallenge(consentChallenge, ['openid', 'profile', 'email']);
+    const acceptData = await acceptConsentChallenge(consentChallenge, ['openid', 'profile', 'email'], testUserInfo);
     console.log(`[auth/consent] consent受け入れ完了、リダイレクト先: ${acceptData.redirect_to}`);
     console.log(`[auth/consent] acceptData:`, JSON.stringify(acceptData, null, 2));
         
@@ -147,6 +152,7 @@ router.get("/callback", async (req, res, next) => {
         // GitLabユーザー情報を取得
       const userData = await getGitLabUserInfo(tokenData.access_token);
       console.log(`[auth/callback] GitLabユーザー情報取得成功: ${userData.name}`);
+      console.log(userData)
       
       // セッションにユーザー情報を保存
       req.session.user = userData;
@@ -181,20 +187,31 @@ router.get("/callback", async (req, res, next) => {
         global.authConfig.hydra.HYDRA_CALLBACK_URL,
         state
       );
-      
-      // ユーザー情報を取得
+        // ユーザー情報を取得
       const userData = await getHydraUserInfo(tokenData.access_token);
       console.log(`[auth/callback] Hydraユーザー情報取得成功:`, userData);
       
-      // セッションにユーザー情報を保存
-      req.session.user = userData;
+      // Passportスタイルのユーザーオブジェクトを作成
+      const profileUser = {
+        profile: userData,
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        idToken: tokenData.id_token
+      };
+      
+      // セッションにユーザー情報を保存（Passportスタイル）
+      req.session.user = profileUser;
       req.session.accessToken = tokenData.access_token;
       req.session.refreshToken = tokenData.refresh_token;
       req.session.idToken = tokenData.id_token;
       req.session.isAuthenticated = true;
       
+      // req.userにも設定（Passportとの互換性）
+      req.user = profileUser;
+      
       // ログイン後のリダイレクト
       console.log(`[auth/callback] Hydra認証成功、トップページにリダイレクト`);
+      console.log(`[auth/callback] 設定されたユーザー情報:`, profileUser);
       return res.redirect('/');
     } catch (error) {
       console.error(`[auth/callback] Hydra認証エラー:`, error);
@@ -250,16 +267,28 @@ router.get("/status", (req, res) => {
       authConfig: global.authList
     });
   }
-  
-  // カスタム認証処理でログインした場合のチェック
+    // カスタム認証処理でログインした場合のチェック
   if (req.session?.isAuthenticated && req.session?.user) {
-    const user = req.session.user;    // カスタムHydra認証によるユーザー情報の場合
+    const user = req.session.user;
+    
+    // カスタムHydra認証によるユーザー情報の場合（profile構造を持つ）
+    if (req.session.idToken && user.profile) {
+      return res.json({ 
+        authenticated: true, 
+        name: user.profile.name || user.profile.preferred_username || "ログイン中",
+        provider: 'hydra',
+        email: user.profile.email || 'testuser@example.com',
+        custom: true,
+        authConfig: global.authList
+      });
+    }
+    // カスタムHydra認証によるユーザー情報の場合（直接構造）
     if (req.session.idToken) {
       return res.json({ 
         authenticated: true, 
         name: user.name || "ログイン中",
         provider: 'hydra',
-        email: user.email,
+        email: user.email || 'testuser@example.com',
         custom: true,
         authConfig: global.authList
       });
@@ -288,13 +317,13 @@ router.get("/status", (req, res) => {
         authConfig: global.authList
       });
     }
-    
-    // Hydraの場合
+      // Hydraの場合
     if (user.profile) {
       return res.json({
         authenticated: true,
         name: user.profile?.name || user.profile?.preferred_username || "ログイン中",
         provider: 'hydra',
+        email: user.profile?.email || 'testuser@example.com',
         authConfig: global.authList
       });
     }

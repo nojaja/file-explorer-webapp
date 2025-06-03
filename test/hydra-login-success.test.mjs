@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+// Node.js 18の組み込みfetch APIを使用
 import { URLSearchParams } from 'url';
 
 describe('Hydra認証フロー（正常系）', () => {

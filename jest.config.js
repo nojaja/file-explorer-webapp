@@ -1,19 +1,15 @@
-export default {
+module.exports = {
   testEnvironment: 'node',
-  preset: 'default',
-  extensionsToTreatAsEsm: ['.mjs'],
-  globals: {
-    'ts-jest': {
-      useESM: true
-    }
-  },
   transform: {},
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1'
   },
-  testPathIgnorePatterns: ['<rootDir>/test/e2e/'],
-  testMatch: ['**/?(*.)+(spec|test).[jt]s', '**/?(*.)+(spec|test).mjs'],
+  testPathIgnorePatterns: [
+    '<rootDir>/test/e2e/',
+    '<rootDir>/test/.*\\.spec\\.[jt]s$'
+  ],
+  testMatch: ['**/?(*.)+(test).[jt]s', '**/?(*.)+(test).mjs'],
   transformIgnorePatterns: [
-    'node_modules/(?!(node-fetch)/)'
+    'node_modules/'
   ]
 };

@@ -1,4 +1,4 @@
-import fetch from 'node-fetch';
+// Node.js 18の組み込みfetch APIを使用
 
 describe('Hydra認証フロー', () => {
   const base = 'http://localhost:3000';

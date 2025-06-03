@@ -4,7 +4,7 @@
  * package.jsonの"type": "module"を維持する必要がある。
  * もしくはrequire構文に書き換える。
  */
-import fetch from 'node-fetch';
+// Node.js 18の組み込みfetch APIを使用
 
 describe('APIサーバ基本機能', () => {
   const base = 'http://localhost:3000/api';

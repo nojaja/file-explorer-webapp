@@ -5,5 +5,13 @@
   "response_types": ["code"],
   "scope": "openid profile email",
   "redirect_uris": ["http://localhost:3000/auth/callback"],
-  "token_endpoint_auth_method": "client_secret_post"
+  "token_endpoint_auth_method": "client_secret_post",
+  "subject_type": "public",
+  "userinfo_signed_response_alg": "none",
+  "metadata": {
+    "email_verification_required": true,
+    "supported_scopes": ["openid", "profile", "email"],
+    "require_email_claim": true,
+    "email_required": true
+  }
 }
