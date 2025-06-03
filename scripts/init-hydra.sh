@@ -37,3 +37,10 @@ else
 fi
 
 echo "Hydra初期化が完了しました！"
+
+echo "========================"
+echo "テストユーザー情報:"
+echo "ユーザー名: testuser"
+echo "Email: testuser@example.com"
+echo "========================"
+echo "ログイン時に上記の情報を使用してください。"

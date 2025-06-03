@@ -1,5 +1,4 @@
 // Hydraトークン取得処理のカスタムヘルパー
-import fetch from 'node-fetch';
 
 /**
  * HydraからOAuth2トークンを取得するカスタム関数
@@ -17,27 +16,27 @@ export async function getHydraToken(code, clientId, clientSecret, callbackUrl, s
         const hydraTokenUrl = global.authConfig.hydra.HYDRA_TOKEN_URL_INTERNAL;
         const tokenEndpoint = `${hydraTokenUrl}`;
 
-        console.log(`[hydraTokenHelper] トークン取得リクエスト: ${tokenEndpoint}`);
-
-        const requestBody = {
-            client_id: clientId,
-            client_secret: clientSecret,
-            code,
-            grant_type: 'authorization_code',
-            redirect_uri: callbackUrl
-        };
+        console.log(`[hydraTokenHelper] トークン取得リクエスト: ${tokenEndpoint}`);        // OAuth2の標準に従ってapplication/x-www-form-urlencodedで送信
+        const requestParams = new URLSearchParams();
+        requestParams.append('client_id', clientId);
+        requestParams.append('client_secret', clientSecret);
+        requestParams.append('code', code);
+        requestParams.append('grant_type', 'authorization_code');
+        requestParams.append('redirect_uri', callbackUrl);
 
         // stateが指定されている場合は追加
         if (state) {
-            requestBody.state = state;
+            requestParams.append('state', state);
         }
+
+        console.log(`[hydraTokenHelper] リクエストボディ: ${requestParams.toString()}`);
 
         const response = await fetch(tokenEndpoint, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: JSON.stringify(requestBody)
+            body: requestParams.toString()
         });
 
         if (!response.ok) {
@@ -134,14 +133,37 @@ export async function acceptLoginChallenge(loginChallenge, subject = 'test-user'
  * Hydraの管理APIを使ってコンセントチャレンジを受け入れる関数
  * @param {string} consentChallenge - コンセントチャレンジ
  * @param {Array<string>} scopes - 承認するスコープ
+ * @param {Object} userInfo - ユーザー情報（username, emailを含む）
  * @returns {Promise<Object>} - 受け入れレスポンス
  */
-export async function acceptConsentChallenge(consentChallenge, scopes = ['openid', 'profile', 'email']) {
+export async function acceptConsentChallenge(consentChallenge, scopes = ['openid', 'profile', 'email'], userInfo = null) {
     try {
         const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const acceptUrl = `${hydraAdminUrl}/admin/oauth2/auth/requests/consent/accept`;
 
         console.log(`[hydraTokenHelper] コンセントチャレンジ受け入れリクエスト: ${acceptUrl}?consent_challenge=${consentChallenge}`);
+          // ユーザー情報をパースしてIDトークンに含める
+        let idTokenClaims = { 
+            'name': 'test-user',
+            'email': 'testuser@example.com', // デフォルトemail
+            'email_verified': true
+        };
+        if (userInfo) {
+            try {
+                const parsedUserInfo = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
+                idTokenClaims = {
+                    'name': parsedUserInfo.username || 'unknown',
+                    'preferred_username': parsedUserInfo.username || 'unknown',
+                    'email': parsedUserInfo.email || 'testuser@example.com', // emailが空の場合デフォルト値
+                    'email_verified': true // メール検証済みとして扱う
+                };
+                console.log('[hydraTokenHelper] ユーザー情報をIDトークンに追加:', idTokenClaims);
+            } catch (parseError) {
+                console.warn('[hydraTokenHelper] ユーザー情報パースエラー:', parseError);
+                idTokenClaims['name'] = userInfo.toString();
+                idTokenClaims['email'] = 'testuser@example.com'; // パースエラー時もemailを設定
+            }
+        }
 
         const response = await fetch(`${acceptUrl}?consent_challenge=${encodeURIComponent(consentChallenge)}`, {
             method: 'PUT',
@@ -154,9 +176,7 @@ export async function acceptConsentChallenge(consentChallenge, scopes = ['openid
                 remember: false,
                 remember_for: 0,
                 session: {
-                    id_token: {
-                        'name': 'test-user'
-                    }
+                    id_token: idTokenClaims
                 }
             })
         });

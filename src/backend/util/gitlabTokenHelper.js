@@ -1,5 +1,4 @@
 // GitLabトークン取得処理のカスタムヘルパー
-import fetch from 'node-fetch';
 
 /**
  * GitLabからOAuth2トークンを取得するカスタム関数
