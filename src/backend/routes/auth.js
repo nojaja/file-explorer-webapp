@@ -272,37 +272,45 @@ router.get("/status", (req, res) => {
     // カスタム認証処理でログインした場合のチェック
   if (req.session?.isAuthenticated && req.session?.user) {
     const user = req.session.user;
-    
-    // カスタムHydra認証によるユーザー情報の場合（profile構造を持つ）
+      // カスタムHydra認証によるユーザー情報の場合（profile構造を持つ）
     if (req.session.idToken && user.profile) {
+      const userEmail = user.profile.email || 'testuser@example.com';
+      const permissions = getUserPermissions(userEmail);
       return res.json({ 
         authenticated: true, 
         name: user.profile.name || user.profile.preferred_username || "ログイン中",
         provider: 'hydra',
-        email: user.profile.email || 'testuser@example.com',
+        email: userEmail,
         custom: true,
-        authConfig: global.authList
+        authConfig: global.authList,
+        permissions: permissions
       });
     }
     // カスタムHydra認証によるユーザー情報の場合（直接構造）
     if (req.session.idToken) {
+      const userEmail = user.email || 'testuser@example.com';
+      const permissions = getUserPermissions(userEmail);
       return res.json({ 
         authenticated: true, 
         name: user.name || "ログイン中",
         provider: 'hydra',
-        email: user.email || 'testuser@example.com',
+        email: userEmail,
         custom: true,
-        authConfig: global.authList
+        authConfig: global.authList,
+        permissions: permissions
       });
     }
       // カスタムGitLab認証によるユーザー情報の場合
+    const userEmail = user.email || user.name + '@example.com';
+    const permissions = getUserPermissions(userEmail);
     return res.json({ 
       authenticated: true, 
       name: user.name || user.username || "ログイン中",
       provider: 'gitlab',
       avatar: user.avatar_url,
       custom: true,
-      authConfig: global.authList
+      authConfig: global.authList,
+      permissions: permissions
     });
   }
   
@@ -311,37 +319,46 @@ router.get("/status", (req, res) => {
     // passport-github2/gitlab2はprofile.displayName, hydraはprofile等
     const user = req.user || {};    // GitLabの場合
     if (user._json && user._json.name) {
+      const userEmail = user._json.email || user.username + '@example.com';
+      const permissions = getUserPermissions(userEmail);
       return res.json({ 
         authenticated: true, 
         name: user._json.name || user.username,
         provider: 'gitlab',
         avatar: user._json.avatar_url,
-        authConfig: global.authList
+        authConfig: global.authList,
+        permissions: permissions
       });
     }
       // Hydraの場合
     if (user.profile) {
+      const userEmail = user.profile?.email || 'testuser@example.com';
+      const permissions = getUserPermissions(userEmail);
       return res.json({
         authenticated: true,
         name: user.profile?.name || user.profile?.preferred_username || "ログイン中",
         provider: 'hydra',
-        email: user.profile?.email || 'testuser@example.com',
-        authConfig: global.authList
+        email: userEmail,
+        authConfig: global.authList,
+        permissions: permissions
       });
     }
     
     // GitHub/その他の場合
     let name = user.displayName || user.username || "ログイン中";
     let provider = user.provider || 'unknown';
+    const userEmail = user.email || user.emails?.[0]?.value || name + '@example.com';
+    const permissions = getUserPermissions(userEmail);
     res.json({ 
       authenticated: true, 
       name,      provider,
-      authConfig: global.authList
-    });
-  } else {
+      authConfig: global.authList,
+      permissions: permissions
+    });} else {
     res.json({ 
       authenticated: false,
-      authConfig: global.authList
+      authConfig: global.authList,
+      permissions: null
     });
   }
 });
