@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>{{title}} - ファイルエクスプローラ</title>
+  <link rel="stylesheet" href="/styles/base.css">
+  <link rel="stylesheet" href="/styles/error.css">
+</head>
+<body>  <div class="error-container">
+    <h2 class="error-header">{{title}}</h2>
+    <p class="error-message">{{{nl2br message}}}</p>
+    {{#if backLink}}
+    <a href="{{backLink}}" class="error-link">戻る</a>
+    {{/if}}
+  </div>
+</body>
+</html>

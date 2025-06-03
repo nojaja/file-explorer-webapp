@@ -4,6 +4,8 @@ import passport from "passport";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import Handlebars from "handlebars";
+import fs from "fs";
 import listRouter from "./routes/list.js";
 import downloadRouter from "./routes/download.js";
 import deleteRouter from "./routes/delete.js";
@@ -61,6 +63,10 @@ global.config = {
 
 console.log('[認証設定]', global.authList, global.authConfig, global.config);
 
+// Handlebarsテンプレートヘルパー関数（後で定義される__dirnameを使用）
+let templatesDir;
+let renderTemplate;
+
 // 認可システムを初期化
 initializeAuthorization();
 // 初期化
@@ -97,6 +103,34 @@ app.use(hydraUrlReplaceMiddleware);
 // DockerのランタイムステージのWORKDIR /app を基準にする
 // process.cwd() は /app を指す想定
 app.use(express.static(path.join(process.cwd(), "src/frontend")));
+// CSS ファイルの配信（正しいMIMEタイプを設定）
+app.use("/styles", (req, res, next) => {
+  const cssPath = path.join(process.cwd(), "src/styles");
+  console.log(`[CSS middleware] リクエストパス: ${req.path}, フルパス: ${req.originalUrl}, ファイルパス: ${cssPath}`);
+  console.log(`[CSS middleware] process.cwd(): ${process.cwd()}`);
+  
+  // ファイル存在確認のためのデバッグ情報
+  try {
+    const fs = require('fs');
+    const files = fs.readdirSync(cssPath);
+    console.log(`[CSS middleware] stylesディレクトリ内のファイル:`, files);
+    
+    const requestedFile = path.join(cssPath, req.path);
+    const exists = fs.existsSync(requestedFile);
+    console.log(`[CSS middleware] 要求されたファイル: ${requestedFile}, 存在: ${exists}`);
+  } catch (error) {
+    console.error(`[CSS middleware] ファイル確認エラー:`, error);
+  }
+  
+  next();
+}, express.static(path.join(process.cwd(), "src/styles"), {
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.css')) {
+      console.log(`[CSS headers] CSSファイル配信: ${filePath}, Content-Type: text/css`);
+      res.setHeader('Content-Type', 'text/css');
+    }
+  }
+}));
 
 // JSONボディ
 app.use(express.json());
@@ -111,99 +145,46 @@ app.use("/test/auth", testAuthRouter);
 // hydra用ログイン画面
 app.get("/login", (req, res) => {
   const { login_challenge } = req.query;
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="ja">
-    <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>ログイン - ファイルエクスプローラ</title>
-      <style>
-        body { font-family: 'Segoe UI', 'Noto Sans JP', sans-serif; background: #f5f5f5; margin: 0; padding: 2rem; }
-        .login-container { max-width: 400px; margin: 2rem auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
-        .login-header { text-align: center; margin-bottom: 2rem; color: #1976d2; font-size: 1.5rem; font-weight: 600; }
-        .form-group { margin-bottom: 1.5rem; }
-        label { display: block; margin-bottom: 0.5rem; color: #333; font-weight: 500; }
-        input[type="text"], input[type="email"] { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; box-sizing: border-box; }
-        input[type="text"]:focus, input[type="email"]:focus { outline: none; border-color: #1976d2; box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2); }
-        .login-btn { width: 100%; padding: 0.75rem; font-size: 1rem; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; transition: background 0.2s; }
-        .login-btn:hover { background: #1565c0; }
-        .error { color: #d32f2f; margin-top: 0.5rem; font-size: 0.9rem; }
-        .required { color: #d32f2f; }
-      </style>
-    </head>
-    <body>
-      <div class="login-container">
-        <div class="login-header">ログイン</div>
-        <form method="post" action="/login" id="loginForm">
-          <input type="hidden" name="login_challenge" value="${login_challenge || ''}">
-          
-          <div class="form-group">
-            <label for="username">ユーザー名 <span class="required">*</span></label>
-            <input type="text" id="username" name="username" required>
-          </div>
-          
-          <div class="form-group">
-            <label for="email">メールアドレス <span class="required">*</span></label>
-            <input type="email" id="email" name="email" required>
-            <div id="emailError" class="error" style="display: none;"></div>
-          </div>
-          
-          <button type="submit" class="login-btn">ログイン</button>
-        </form>
-      </div>
-      
-      <script>
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-          const email = document.getElementById('email').value;
-          const emailError = document.getElementById('emailError');
-          
-          // 簡単なメール形式チェック
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(email)) {
-            e.preventDefault();
-            emailError.textContent = '有効なメールアドレスを入力してください';
-            emailError.style.display = 'block';
-            return false;
-          }
-          
-          emailError.style.display = 'none';
-        });
-      </script>
-    </body>
-    </html>
-  `);
+  try {
+    const html = renderTemplate('login', { login_challenge });
+    res.send(html);
+  } catch (error) {
+    console.error("[login] テンプレートレンダリングエラー:", error);
+    res.status(500).send("ログイン画面の表示でエラーが発生しました");
+  }
 });
 
 app.post("/login", express.urlencoded({ extended: false }), async (req, res) => {
   console.log("[アクセス] /login POST 受信", req.body);
   const { login_challenge, username, email } = req.body;
-  
-  // 入力値検証
+    // 入力値検証
   if (!login_challenge || !username || !email) {
-    return res.status(400).send(`
-      <!DOCTYPE html>
-      <html><head><meta charset="UTF-8"><title>エラー</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
-        <h2 style="color: #d32f2f;">入力エラー</h2>
-        <p>ユーザー名とメールアドレスは必須項目です。</p>
-        <a href="/login?login_challenge=${login_challenge}" style="color: #1976d2;">戻る</a>
-      </body></html>
-    `);
+    try {
+      const html = renderTemplate('error', {
+        title: '入力エラー',
+        message: 'ユーザー名とメールアドレスは必須項目です。',
+        backLink: `/login?login_challenge=${login_challenge}`
+      });
+      return res.status(400).send(html);
+    } catch (err) {
+      console.error('[テンプレートエラー]', err);
+      return res.status(500).send('テンプレートエラーが発生しました');
+    }
   }
-  
-  // Email形式検証
+    // Email形式検証
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).send(`
-      <!DOCTYPE html>
-      <html><head><meta charset="UTF-8"><title>エラー</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
-        <h2 style="color: #d32f2f;">メールアドレスエラー</h2>
-        <p>有効なメールアドレス形式で入力してください。</p>
-        <a href="/login?login_challenge=${login_challenge}" style="color: #1976d2;">戻る</a>
-      </body></html>
-    `);
+    try {
+      const html = renderTemplate('error', {
+        title: 'メールアドレスエラー',
+        message: '有効なメールアドレス形式で入力してください。',
+        backLink: `/login?login_challenge=${login_challenge}`
+      });
+      return res.status(400).send(html);
+    } catch (err) {
+      console.error('[テンプレートエラー]', err);
+      return res.status(500).send('テンプレートエラーが発生しました');
+    }
   }
     try {
     // デフォルトのテストユーザーの場合、emailが空の可能性があるので補完
@@ -219,19 +200,19 @@ app.post("/login", express.urlencoded({ extended: false }), async (req, res) => 
     // ユーザーサービスでユーザー登録/ログイン処理
     const loginResult = loginUser(username, finalEmail);
     console.log("[ユーザーログイン結果]", loginResult);
-    
-    // Email認可チェック
+      // Email認可チェック
     if (!loginResult.isAuthorized) {
-      return res.status(403).send(`
-        <!DOCTYPE html>
-        <html><head><meta charset="UTF-8"><title>アクセス拒否</title></head>
-        <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
-          <h2 style="color: #d32f2f;">アクセス拒否</h2>
-          <p>申し訳ございません。お使いのメールアドレス「${email}」はこのシステムにアクセスする権限がありません。</p>
-          <p>アクセス許可が必要な場合は、システム管理者にお問い合わせください。</p>
-          <a href="/login?login_challenge=${login_challenge}" style="color: #1976d2;">戻る</a>
-        </body></html>
-      `);
+      try {
+        const html = renderTemplate('error', {
+          title: 'アクセス拒否',
+          message: `申し訳ございません。お使いのメールアドレス「${email}」はこのシステムにアクセスする権限がありません。\nアクセス許可が必要な場合は、システム管理者にお問い合わせください。`,
+          backLink: `/login?login_challenge=${login_challenge}`
+        });
+        return res.status(403).send(html);
+      } catch (error) {
+        console.error("[login] エラーテンプレートレンダリングエラー:", error);
+        return res.status(403).send("アクセス権限がありません");
+      }
     }
     
     // ユーザー情報をセッションに保存
@@ -253,18 +234,19 @@ app.post("/login", express.urlencoded({ extended: false }), async (req, res) => 
     if (acceptData.redirect_to) return res.redirect(acceptData.redirect_to);
     
     // エラー詳細も表示
-    return res.status(500).send(`hydra login accept失敗: ${JSON.stringify(acceptData)}`);
-  } catch (err) {
+    return res.status(500).send(`hydra login accept失敗: ${JSON.stringify(acceptData)}`);  } catch (err) {
     console.error("[hydra login accept] 例外発生:", err);
-    return res.status(500).send(`
-      <!DOCTYPE html>
-      <html><head><meta charset="UTF-8"><title>エラー</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
-        <h2 style="color: #d32f2f;">認証エラー</h2>
-        <p>認証処理中にエラーが発生しました: ${err.message}</p>
-        <a href="/login?login_challenge=${login_challenge}" style="color: #1976d2;">戻る</a>
-      </body></html>
-    `);
+    try {
+      const html = renderTemplate('error', {
+        title: '認証エラー',
+        message: `認証処理中にエラーが発生しました: ${err.message}`,
+        backLink: `/login?login_challenge=${login_challenge}`
+      });
+      return res.status(500).send(html);
+    } catch (error) {
+      console.error("[login] エラーテンプレートレンダリングエラー:", error);
+      return res.status(500).send("認証処理でエラーが発生しました");
+    }
   }
 });
 
@@ -283,72 +265,37 @@ app.get("/consent", async (req, res) => {
       userInfo = { username: data.subject, email: '' };
     }
     
-    res.send(`
-      <!DOCTYPE html>
-      <html lang="ja">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>アクセス許可 - ファイルエクスプローラ</title>
-        <style>
-          body { font-family: 'Segoe UI', 'Noto Sans JP', sans-serif; background: #f5f5f5; margin: 0; padding: 2rem; }
-          .consent-container { max-width: 500px; margin: 2rem auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
-          .consent-header { text-align: center; margin-bottom: 2rem; color: #1976d2; font-size: 1.5rem; font-weight: 600; }
-          .user-info { background: #f8f9fa; padding: 1rem; border-radius: 4px; margin-bottom: 1.5rem; }
-          .scope-list { margin: 1.5rem 0; }
-          .scope-item { background: #e3f2fd; padding: 0.5rem 1rem; margin: 0.5rem 0; border-radius: 4px; border-left: 4px solid #1976d2; }
-          .button-group { display: flex; gap: 1rem; margin-top: 2rem; }
-          .consent-btn { flex: 1; padding: 0.75rem; font-size: 1rem; border: none; border-radius: 4px; cursor: pointer; transition: background 0.2s; }
-          .accept-btn { background: #4caf50; color: #fff; }
-          .accept-btn:hover { background: #45a049; }
-          .reject-btn { background: #f44336; color: #fff; }
-          .reject-btn:hover { background: #da190b; }
-        </style>
-      </head>
-      <body>
-        <div class="consent-container">
-          <div class="consent-header">アクセス許可の確認</div>
-          
-          <div class="user-info">
-            <strong>ユーザー情報:</strong><br>
-            ユーザー名: ${userInfo.username || 'unknown'}<br>
-            メールアドレス: ${userInfo.email || 'unknown'}
-          </div>
-          
-          <div>ファイルエクスプローラが以下の情報にアクセスすることを許可しますか？</div>
-          
-          <div class="scope-list">
-            ${(data.requested_scope || []).map(scope => {
-              const scopeDesc = {
-                'openid': 'OpenID Connect - ログイン認証',
-                'profile': 'プロフィール情報（ユーザー名等）',
-                'email': 'メールアドレス'
-              };
-              return `<div class="scope-item">${scopeDesc[scope] || scope}</div>`;
-            }).join('')}
-          </div>
-          
-          <form method="post" action="/consent">
-            <input type="hidden" name="consent_challenge" value="${consent_challenge || ''}">
-            <div class="button-group">
-              <button type="submit" name="accept" value="1" class="consent-btn accept-btn">許可</button>
-              <button type="submit" name="accept" value="0" class="consent-btn reject-btn">拒否</button>
-            </div>
-          </form>
-        </div>
-      </body>
-      </html>
-    `);
+    // スコープの説明を準備
+    const scopeDesc = {
+      'openid': 'OpenID Connect - ログイン認証',
+      'profile': 'プロフィール情報（ユーザー名等）',
+      'email': 'メールアドレス'
+    };
+    
+    const scopes = (data.requested_scope || []).map(scope => ({
+      name: scope,
+      description: scopeDesc[scope] || scope
+    }));
+
+    const html = renderTemplate('consent', {
+      consent_challenge,
+      user: userInfo,
+      scopes: scopes
+    });
+    res.send(html);
   } catch (error) {
     console.error("[consent] コンセントリクエスト取得エラー:", error);
-    res.status(500).send(`
-      <!DOCTYPE html>
-      <html><head><meta charset="UTF-8"><title>エラー</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
-        <h2 style="color: #d32f2f;">コンセント情報取得エラー</h2>
-        <p>エラー: ${error.message}</p>
-      </body></html>
-    `);
+    try {
+      const html = renderTemplate('error', {
+        title: 'コンセント情報取得エラー',
+        message: `エラー: ${error.message}`,
+        backLink: null
+      });
+      res.status(500).send(html);
+    } catch (templateError) {
+      console.error("[consent] エラーテンプレートレンダリングエラー:", templateError);
+      res.status(500).send("コンセント情報の取得でエラーが発生しました");
+    }
   }
 });
 
@@ -378,34 +325,45 @@ app.post("/consent", express.urlencoded({ extended: false }), async (req, res) =
     
     // リダイレクト処理
     if (data.redirect_to) return res.redirect(data.redirect_to);
-    return res.status(500).send(`hydra consent ${accept === "1" ? "accept" : "reject"}失敗`);
-  } catch (error) {
+    return res.status(500).send(`hydra consent ${accept === "1" ? "accept" : "reject"}失敗`);  } catch (error) {
     console.error("[consent] 処理エラー:", error);
-    return res.status(500).send(`
-      <!DOCTYPE html>
-      <html><head><meta charset="UTF-8"><title>エラー</title></head>
-      <body style="font-family: sans-serif; text-align: center; padding: 2rem;">
-        <h2 style="color: #d32f2f;">コンセント処理エラー</h2>
-        <p>エラー: ${error.message}</p>
-        <a href="/consent?consent_challenge=${consent_challenge}" style="color: #1976d2;">戻る</a>
-      </body></html>
-    `);
+    try {
+      const html = renderTemplate('error', {
+        title: 'コンセント処理エラー',
+        message: `エラー: ${error.message}`,
+        backLink: `/consent?consent_challenge=${consent_challenge}`
+      });
+      return res.status(500).send(html);
+    } catch (templateError) {
+      console.error("[consent] エラーテンプレートレンダリングエラー:", templateError);
+      return res.status(500).send("コンセント処理でエラーが発生しました");
+    }
   }
 });
 
 // 静的ファイル配信
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-app.use((req, res, next) => {
-  console.log(`[static前] リクエストパス: ${req.path}`);
-  next();
-});
-app.use(express.static(path.join(__dirname, "../frontend")));
 
-// SPA用catch-all（静的ファイルに該当しない場合のみindex.htmlを返す）
-app.get("*", (req, res) => {
-  console.log(`[catch-all] index.html返却: ${req.path}`);
-  res.sendFile(path.resolve(__dirname, "../frontend/index.html"));
+// Handlebarsテンプレートディレクトリとレンダリング関数を定義
+templatesDir = path.join(__dirname, "../templates");
+
+// Handlebarsヘルパーを登録（改行をHTMLの<br>に変換）
+Handlebars.registerHelper('nl2br', function(text) {
+  if (!text) return '';
+  return new Handlebars.SafeString(text.replace(/\n/g, '<br>'));
 });
+
+renderTemplate = (templateName, data = {}) => {
+  try {
+    const templatePath = path.join(templatesDir, `${templateName}.hbs`);
+    const templateContent = fs.readFileSync(templatePath, 'utf8');
+    const template = Handlebars.compile(templateContent);
+    return template(data);
+  } catch (error) {
+    console.error(`[renderTemplate] テンプレート読み込みエラー (${templateName}):`, error);
+    throw error;
+  }
+};
 
 // Gitlab OAUTH
 if (global.authConfig && global.authConfig.gitlab && global.authConfig.gitlab.GITLAB_CLIENT_ID) {
@@ -489,6 +447,12 @@ passport.deserializeUser((user, done) => {
 app.use((err, req, res, next) => {
   console.error("エラー発生:", err);
   res.status(500).json({ error: "サーバ内部エラーが発生しました" });
+});
+
+// SPA用catch-all（静的ファイルに該当しない場合のみindex.htmlを返す）
+app.get("*", (req, res) => {
+  console.log(`[catch-all] パス: ${req.path}, 静的ファイル確認後のindex.html返却`);
+  res.sendFile(path.resolve(process.cwd(), "src/frontend/index.html"));
 });
 
 app.listen(PORT, '0.0.0.0', () => {
