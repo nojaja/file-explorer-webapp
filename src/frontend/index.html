@@ -2,58 +2,9 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ファイルエクスプローラ</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
-  <style>
-    body { font-family: 'Segoe UI', 'Noto Sans JP', sans-serif; background: #f5f5f5; margin: 0; }
-    header { background: #1976d2; color: #fff; padding: 1rem; font-size: 1.5rem; letter-spacing: 0.1em; box-shadow: 0 2px 8px #0002; }
-    .container { max-width: 900px; margin: 2rem auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 2rem; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
-    th, td { padding: 0.7rem; text-align: left; border-bottom: 1px solid #eee; }
-    th { background: #e3f2fd; font-weight: 600; }
-    tr:hover { background: #f1f8ff; }
-    .icon-btn { background: none; border: none; cursor: pointer; color: #1976d2; font-size: 1.2rem; transition: color 0.2s; }
-    .icon-btn:hover { color: #1565c0; }
-    .actions { display: flex; gap: 0.5rem; }
-    .login-btn { margin: 1rem 0; padding: 0.5rem 1.5rem; font-size: 1rem; border: none; border-radius: 4px; background: #1976d2; color: #fff; cursor: pointer; transition: background 0.2s; }
-    .login-btn.github { background: #333; }
-    .login-btn.gitlab { background: #fc6d26; }
-    .login-btn.hydra { background: #009688; }
-    .login-btn:hover { filter: brightness(0.95); }
-    .error { color: #d32f2f; margin: 1rem 0; }
-    .breadcrumb-item { color: #1976d2; cursor: pointer; text-decoration: underline; margin-right: 0.2em; }
-    .breadcrumb-item:last-child { color: #333; text-decoration: none; cursor: default; }
-    .refresh-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.3em;
-      background: #1976d2;
-      color: #fff;
-      border: none;
-      border-radius: 4px;
-      padding: 0.5em 1.2em;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      margin-bottom: 1rem;
-      box-shadow: 0 1px 4px #0001;
-      transition: background 0.2s, box-shadow 0.2s;
-    }
-    .refresh-btn:hover {
-      background: #1565c0;
-      box-shadow: 0 2px 8px #0002;
-    }
-    .refresh-btn .material-icons {
-      font-size: 1.2em;
-      vertical-align: middle;
-    }
-    @media (max-width: 600px) {
-      .container { padding: 0.5rem; }
-      th, td { padding: 0.4rem; font-size: 0.95rem; }
-      header { font-size: 1.1rem; }
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">  <title>ファイルエクスプローラ</title>  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="/styles/base.css">
+  <link rel="stylesheet" href="/styles/frontend.css">
 </head>
 <body>
   <header>ファイルエクスプローラ</header>

@@ -1,0 +1,39 @@
+/* Error page specific styles */
+
+body {
+  padding: 2rem;
+  text-align: center;
+}
+
+.error-container {
+  max-width: 500px;
+  margin: 2rem auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+}
+
+.error-header {
+  color: #d32f2f;
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+.error-message {
+  color: #333;
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+.error-link {
+  color: #1976d2;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.error-link:hover {
+  text-decoration: underline;
+}

@@ -29,6 +29,8 @@ COPY --from=builder /app/conf/authorization-config.json /conf/authorization-conf
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # フロントエンドのファイルをコピー
 COPY --from=builder /app/src/frontend/ ./src/frontend/
+# CSSファイルをコピー
+COPY --from=builder /app/src/styles/ ./src/styles/
 # ポートを公開
 EXPOSE 3000
 # エントリポイント
