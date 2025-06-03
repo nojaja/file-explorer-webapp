@@ -153,9 +153,18 @@ async function updateLoginStatus() {
     
     const oldRefreshBtn = document.getElementById('refresh-list-btn');
     if (oldRefreshBtn) oldRefreshBtn.remove();
-    
-    // 認証なしモードの場合
+      // 認証なしモードの場合
     if (authConfig.noAuthRequired) {
+      // 認証なしモードでは削除権限あり（フルアクセス）
+      userPermissions = {
+        level: 'full',
+        description: 'フルアクセス',
+        canView: true,
+        canDownload: true,
+        canUpload: true,
+        canDelete: true
+      };
+      
       // ログインボタンを全て非表示
       document.querySelectorAll('.login-btn.github, .login-btn.gitlab, .login-btn.hydra, #logout-btn').forEach(btn => btn.style.display = 'none');
       
@@ -245,8 +254,10 @@ async function updateLoginStatus() {
       }
       
       fileTable.style.display = '';
-      fetchFiles(currentPath);
-    } else {
+      fetchFiles(currentPath);    } else {
+      // 認証されていない場合は権限なし
+      userPermissions = null;
+      
       loginStatusSpan.textContent = '未ログイン';
       
       // 設定された認証方法のみ表示
