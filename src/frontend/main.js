@@ -6,6 +6,7 @@ const logoutBtn = document.getElementById('logout-btn');
 const authArea = document.getElementById('auth-area');
 let loginStatusSpan;
 let currentPath = '';
+let userPermissions = null; // ユーザー権限情報を保存
 
 async function fetchFiles(path = '') {
   try {
@@ -30,6 +31,13 @@ function renderFiles(files) {
   files.forEach(f => {
     const tr = document.createElement('tr');
     const isDir = f.type === 'dir';
+    
+    // 削除ボタンの表示制御
+    const canDelete = userPermissions?.canDelete ?? true;
+    const deleteButton = canDelete 
+      ? `<button class="icon-btn" title="削除" onclick="deleteFile('${f.path}')"><span class="material-icons">delete</span></button>`
+      : '';
+    
     tr.innerHTML = `
       <td>${
         isDir ? '<span class="material-icons" style="vertical-align:middle;color:#ffa000;">folder</span> '
@@ -49,7 +57,7 @@ function renderFiles(files) {
           ? `<a class="icon-btn" title="zipダウンロード" href="/api/download/folder?path=${encodeURIComponent(f.path)}" download><span class="material-icons">archive</span></a>` 
           : `<a class="download-link icon-btn" title="ダウンロード" href="/api/download/file?path=${encodeURIComponent(f.path)}" download><span class="material-icons">download</span></a>`
         }
-        <button class="icon-btn" title="削除" onclick="deleteFile('${f.path}')"><span class="material-icons">delete</span></button>
+        ${deleteButton}
       </td>
     `;
     fileList.appendChild(tr);
@@ -93,6 +101,12 @@ window.changeDir = async function(path) {
 };
 
 window.deleteFile = async function(path) {
+  // 削除権限チェック
+  if (userPermissions && !userPermissions.canDelete) {
+    alert('削除権限がありません。');
+    return;
+  }
+  
   if (!confirm(`${path} を削除しますか？`)) return;
   const res = await fetch(`/api/delete/file?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
   if (res.ok) fetchFiles();
@@ -112,6 +126,9 @@ async function updateLoginStatus() {
   try {
     const res = await fetch('/auth/status');
     const data = await res.json();
+    
+    // 権限情報をグローバル変数に保存
+    userPermissions = data.permissions || null;
     
     // 認証設定を取得
     const authConfig = data.authConfig || {
@@ -194,14 +211,14 @@ async function updateLoginStatus() {
         'none': '#4caf50',
         'unknown': '#757575'
       }[providerName] || '#757575';
-      
-      loginStatusSpan.innerHTML = `
+        loginStatusSpan.innerHTML = `
         ${avatarHtml}
         <span style="display:flex; align-items:center;">
           ログイン中: ${data.name || ''}
           <span style="background-color: ${badgeColor}; color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 10px; margin-left: 8px;">
             ${providerLabel}
           </span>
+          ${userPermissions ? `<span style="background-color: #4caf50; color: white; font-size: 0.7em; padding: 2px 6px; border-radius: 10px; margin-left: 8px;" title="権限レベル: ${userPermissions.description || '不明'}">${userPermissions.level || 'unknown'}</span>` : ''}
         </span>
       `;
       

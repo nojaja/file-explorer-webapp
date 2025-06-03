@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json webpack.backend.config.js ./
 # ソースコードをコピー
 COPY src/ ./src/
+COPY conf/ ./conf/
 # 依存関係をインストール
 RUN npm ci
 # pkgとwebpack-cliをグローバルインストール
@@ -24,6 +25,7 @@ FROM scratch
 WORKDIR /app
 # バイナリと証明書をコピー
 COPY --from=builder /app/app.bin /app/app.bin
+COPY --from=builder /app/conf/authorization-config.json /conf/authorization-config.json
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # フロントエンドのファイルをコピー
 COPY --from=builder /app/src/frontend/ ./src/frontend/

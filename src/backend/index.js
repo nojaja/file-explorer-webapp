@@ -8,6 +8,7 @@ import listRouter from "./routes/list.js";
 import downloadRouter from "./routes/download.js";
 import deleteRouter from "./routes/delete.js";
 import authRouter from "./routes/auth.js";
+import testAuthRouter from "./routes/test-auth.js";
 import { Strategy as GitLabStrategy } from "passport-gitlab2";
 import { 
   acceptLoginChallenge, 
@@ -18,7 +19,8 @@ import {
 import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import { gitlabUrlReplaceMiddleware } from "./middlewares/gitlabUrlReplace.js";
 import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
-import { loginUser, isEmailAuthorized } from "./services/userService.js";
+import { loginUser, isEmailAuthorized, initializeAllowedEmails} from "./services/userService.js";
+import { initializeAuthorization } from "./services/authorizationService.js";
 // .env読込
 dotenv.config();
 
@@ -53,9 +55,16 @@ global.authConfig = {
     HYDRA_SCOPE: process.env.HYDRA_SCOPE|| "openid profile email",
   }
 };
+global.config = {
+  authorizationConfigPath: process.env.AUTHORIZATION_CONFIG_PATH || "./authorization-config.json"
+}
 
-console.log('[認証設定]', global.authList, global.authConfig);
+console.log('[認証設定]', global.authList, global.authConfig, global.config);
 
+// 認可システムを初期化
+initializeAuthorization();
+// 初期化
+initializeAllowedEmails();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -95,7 +104,9 @@ app.use(express.json());
 app.use("/api/list", listRouter);
 app.use("/api/download", downloadRouter);
 app.use("/api/delete", deleteRouter);
+app.use("/test/auth", testAuthRouter);
 app.use("/auth", authRouter);
+app.use("/test/auth", testAuthRouter);
 
 // hydra用ログイン画面
 app.get("/login", (req, res) => {
