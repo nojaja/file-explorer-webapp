@@ -12,13 +12,7 @@ export function initializeAllowedEmails() {
     const allowedEmailsEnv = process.env.ALLOWED_EMAILS || '';
     const emailList = allowedEmailsEnv.split(',').map(email => email.trim()).filter(email => email);
       // デフォルトで管理者メールを追加
-    const defaultEmails = [
-        'admin@example.com',
-        'test@example.com',
-        'testuser@example.com', // testユーザー用のデフォルトemail
-        'user@localhost',
-        'admin@localhost'
-    ];
+    const defaultEmails = [];
     
     [...defaultEmails, ...emailList].forEach(email => {
         allowedEmails.add(email.toLowerCase());
@@ -172,5 +166,4 @@ export function removeAllowedEmail(email) {
     console.log('[UserService] 許可Emailアドレス削除:', normalizedEmail);
 }
 
-// 初期化
-initializeAllowedEmails();
+

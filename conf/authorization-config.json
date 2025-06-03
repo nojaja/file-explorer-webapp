@@ -1,0 +1,60 @@
+{
+  "authorization": {
+    "rules": [
+      {
+        "email": "gitlab_admin_953f7c@example.com",
+        "permission": "readonly",
+        "description": "システム管理者 - フルアクセス"
+      },
+      {
+        "email": "admin@example.com",
+        "permission": "full",
+        "description": "システム管理者 - フルアクセス"
+      },
+      {
+        "email": "testuser@example.com",
+        "permission": "full",
+        "description": "テストユーザー - フルアクセス"
+      },
+      {
+        "email": "readonly@example.com",
+        "permission": "readonly",
+        "description": "読み取り専用ユーザー - 削除不可"
+      },
+      {
+        "email": "blocked@example.com",
+        "permission": "denied",
+        "description": "アクセス拒否ユーザー"
+      }
+    ],
+    "defaultPermission": "denied",
+    "permissions": {
+      "full": {
+        "description": "フルアクセス - すべての操作が可能",
+        "canView": true,
+        "canDownload": true,
+        "canUpload": true,
+        "canDelete": true
+      },
+      "readonly": {
+        "description": "削除不可 - 削除以外の操作が可能",
+        "canView": true,
+        "canDownload": true,
+        "canUpload": true,
+        "canDelete": false
+      },
+      "denied": {
+        "description": "アクセス不可 - すべてのアクセスを拒否",
+        "canView": false,
+        "canDownload": false,
+        "canUpload": false,
+        "canDelete": false
+      }
+    }
+  },
+  "metadata": {
+    "version": "1.0.0",
+    "lastUpdated": "2025-06-03T09:00:00Z",
+    "description": "ファイルエクスプローラーWebアプリケーション認可設定"
+  }
+}

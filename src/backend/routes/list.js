@@ -1,11 +1,11 @@
 import express from "express";
-import { ensureAuthenticated } from "../middlewares/auth.js";
+import { accessAuthorizationMiddleware } from "../middlewares/authMiddleware.js";
 import { getList } from "../services/listService.js";
 
 const router = express.Router();
 
 // GET /api/list?path=xxx
-router.get("/", ensureAuthenticated, async (req, res) => {
+router.get("/", accessAuthorizationMiddleware, async (req, res) => {
   try {
     const path = req.query.path || "/";
     const list = await getList(path);

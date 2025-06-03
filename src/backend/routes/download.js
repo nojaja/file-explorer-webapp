@@ -1,13 +1,13 @@
 import express from "express";
-import { ensureAuthenticated } from "../middlewares/auth.js";
+import { createActionAuthorizationMiddleware } from "../middlewares/authMiddleware.js";
 import { downloadFile, downloadFolderZip } from "../services/downloadService.js";
 
 const router = express.Router();
 
 // GET /api/download/file?path=xxx
-router.get("/file", ensureAuthenticated, downloadFile);
+router.get("/file", createActionAuthorizationMiddleware('download'), downloadFile);
 
 // GET /api/download/folder?path=xxx
-router.get("/folder", ensureAuthenticated, downloadFolderZip);
+router.get("/folder", createActionAuthorizationMiddleware('download'), downloadFolderZip);
 
 export default router;

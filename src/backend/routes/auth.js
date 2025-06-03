@@ -2,6 +2,8 @@ import express from "express";
 import passport from "passport";
 import { getGitLabToken, getGitLabUserInfo } from "../util/gitlabTokenHelper.js";
 import { getHydraToken, getHydraUserInfo, acceptLoginChallenge, acceptConsentChallenge } from "../util/hydraTokenHelper.js";
+import { getUserPermissions } from "../services/authorizationService.js";
+import { authMiddleware } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -352,7 +354,29 @@ router.get("/debug", (req, res) => {
     sessionKeys: Object.keys(req.session || {}),
     oauth2States: req.session?.oauth2States,
     isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-    user: req.user || null
-  });
+    user: req.user || null  });
 });
+
+// 認証ステータス確認 + 権限情報取得
+router.get("/status", authMiddleware, async (req, res) => {
+  try {
+    const userEmail = req.user?.email;
+    const permissions = getUserPermissions(userEmail);
+    
+    res.json({
+      authenticated: true,
+      user: {
+        email: userEmail,
+        name: req.user?.name || req.user?.preferred_username,
+        id: req.user?.id || req.user?.sub
+      },
+      permissions: permissions,
+      authMethod: req.user?.authMethod || 'unknown'
+    });
+  } catch (error) {
+    console.error('[auth/status] エラー:', error);
+    res.status(500).json({ error: 'ステータス取得エラー' });
+  }
+});
+
 export default router;

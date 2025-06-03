@@ -1,4 +1,4 @@
-module.exports = {
+export default {
   testEnvironment: 'node',
   transform: {},
   moduleNameMapper: {
@@ -11,5 +11,7 @@ module.exports = {
   testMatch: ['**/?(*.)+(test).[jt]s', '**/?(*.)+(test).mjs'],
   transformIgnorePatterns: [
     'node_modules/'
-  ]
+  ],
+  preset: undefined,
+  setupFilesAfterEnv: ['<rootDir>/test/setup.js']
 };
