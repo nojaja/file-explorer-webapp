@@ -11,15 +11,6 @@ const router = express.Router();
 router.get("/github", passport.authenticate("github", { scope: ["user:email"] }));
 // Gitlab認証開始
 router.get("/gitlab", (req, res, next) => {
-  console.log('[auth/gitlab] 認証開始:', {
-    sessionID: req.session?.id,
-    sessionExists: !!req.session,
-    sessionKeys: Object.keys(req.session || {}),
-    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-    url: req.url,
-    headers: req.headers
-  });
-  
   // セッションを初期化（必要な場合）
   if (!req.session) {
     console.error('[auth/gitlab] セッションが存在しません');
@@ -31,18 +22,11 @@ router.get("/gitlab", (req, res, next) => {
     req.session.oauth2 = {};
   }
   
-  // GitLab URL情報をログ出力（デバッグ用）
-  console.log('[auth/gitlab] GitLab URL設定:', {
-    GITLAB_URL_INTERNAL: global.authConfig.gitlab.GITLAB_URL_INTERNAL,
-    GITLAB_URL: global.authConfig.gitlab.GITLAB_URL
-  });
-  
   // GitLab URL情報をセッションに保存（URL置換処理用）
   req.session.gitlabUrls = {
     gitlabInternalUrl: global.authConfig.gitlab.GITLAB_URL_INTERNAL,
     gitlabBrowserUrl: global.authConfig.gitlab.GITLAB_URL
   };
-  console.log('[auth/gitlab] セッションにGitLab URL情報を保存:', req.session.gitlabUrls);
   
   passport.authenticate("gitlab", {
     scope: ['read_user']
@@ -51,15 +35,6 @@ router.get("/gitlab", (req, res, next) => {
 
 // hydra認証開始
 router.get("/hydra", (req, res, next) => {
-  console.log('[auth/hydra] 認証開始:', {
-    sessionID: req.session?.id,
-    sessionExists: !!req.session,
-    sessionKeys: Object.keys(req.session || {}),
-    isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-    url: req.url,
-    headers: req.headers
-  });
-  
   // セッションを初期化（必要な場合）
   if (!req.session) {
     console.error('[auth/hydra] セッションが存在しません');
@@ -80,7 +55,6 @@ router.get("/hydra", (req, res, next) => {
 // Hydra login challenge handler
 router.get("/login", async (req, res) => {
   const loginChallenge = req.query.login_challenge;
-  console.log(`[auth/login] login_challenge受信: ${loginChallenge}`);
   
   if (!loginChallenge) {
     return res.status(400).send("login_challenge parameter is required");
@@ -90,8 +64,6 @@ router.get("/login", async (req, res) => {
     // 簡易実装: 自動的にログインを受け入れる
     // 実際の実装では、ここでユーザー認証を行う
     const acceptData = await acceptLoginChallenge(loginChallenge, 'test-user');
-    console.log(`[auth/login] login受け入れ完了、リダイレクト先: ${acceptData.redirect_to}`);
-    console.log(`[auth/login] acceptData:`, JSON.stringify(acceptData, null, 2));
     
     return res.redirect(acceptData.redirect_to);
   } catch (error) {
@@ -103,7 +75,6 @@ router.get("/login", async (req, res) => {
 // Hydra consent challenge handler  
 router.get("/consent", async (req, res) => {
   const consentChallenge = req.query.consent_challenge;
-  console.log(`[auth/consent] consent_challenge受信: ${consentChallenge}`);
   
   if (!consentChallenge) {
     return res.status(400).send("consent_challenge parameter is required");
@@ -117,8 +88,6 @@ router.get("/consent", async (req, res) => {
     
     // コンセントチャレンジを受け入れる
     const acceptData = await acceptConsentChallenge(consentChallenge, ['openid', 'profile', 'email'], testUserInfo);
-    console.log(`[auth/consent] consent受け入れ完了、リダイレクト先: ${acceptData.redirect_to}`);
-    console.log(`[auth/consent] acceptData:`, JSON.stringify(acceptData, null, 2));
         
     return res.redirect(acceptData.redirect_to);
   } catch (error) {
@@ -154,7 +123,6 @@ router.get("/callback", async (req, res, next) => {
         // GitLabユーザー情報を取得
       const userData = await getGitLabUserInfo(tokenData.access_token);
       console.log(`[auth/callback] GitLabユーザー情報取得成功: ${userData.name}`);
-      console.log(userData)
       
       // セッションにユーザー情報を保存
       req.session.user = userData;
@@ -219,26 +187,26 @@ router.get("/callback", async (req, res, next) => {
       console.error(`[auth/callback] Hydra認証エラー:`, error);
       // エラーの場合、Passportのフローにフォールバック
       console.log(`[auth/callback] Passport認証にフォールバック`);
-    }
-  }
+    }  }
 
-  // Hydra認証（Passport使用 - フォールバック）
-  passport.authenticate(["hydra"], {
-    failureRedirect: "/?error=auth"
-  })(req, res, (err) => {
-    if (err) {
-      console.error(`[auth/callback] 認証エラー:`, err);
-      console.error(`[auth/callback] エラー詳細:`, {
-        name: err.name,
-        message: err.message,
-        stack: err.stack
-      });
-      return res.redirect("/?error=auth_callback");
-    }
-    console.log(`[auth/callback] 認証成功`);
-    console.log(`[auth/callback] ユーザー情報:`, req.user);
-    res.redirect("/");
-  });
+  // 通常のPassport認証フローにフォールバック
+  next();
+});
+
+// Hydra認証コールバック専用
+router.get("/hydra/callback", passport.authenticate("hydra", {
+  failureRedirect: "/?error=hydra_auth"
+}), (req, res) => {
+  console.log(`[auth/hydra/callback] Hydra認証成功`);
+  console.log(`[auth/hydra/callback] ユーザー情報:`, req.user);
+  
+  // セッションにユーザー情報を保存
+  req.session.user = req.user.profile;
+  req.session.accessToken = req.user.accessToken;
+  req.session.idToken = req.user.idToken;
+  req.session.isAuthenticated = true;
+  
+  res.redirect("/");
 });
 
 // ログアウト
@@ -258,15 +226,29 @@ router.get("/logout", (req, res) => {
 
 // ログイン状態確認API
 router.get("/status", (req, res) => {
-  // グローバルスコープから認証設定を参照
+  // 現在の認証設定を動的に取得
+  const currentAuthConfig = global.authList || {
+    github: process.env.GITHUB === 'TRUE',
+    gitlab: process.env.GITLAB === 'TRUE', 
+    hydra: process.env.HYDRA === 'TRUE',
+    noAuthRequired: !(process.env.GITHUB === 'TRUE' || process.env.GITLAB === 'TRUE' || process.env.HYDRA === 'TRUE')
+  };
   
   // 認証なしモードの場合
-  if (global.authList.noAuthRequired) {
+  if (currentAuthConfig.noAuthRequired) {
     return res.json({ 
       authenticated: true, 
       name: "ゲスト", 
       provider: 'none',
-      authConfig: global.authList
+      authConfig: currentAuthConfig,
+      permissions: {
+        level: 'full',
+        description: 'フルアクセス（認証なしモード）',
+        canView: true,
+        canDownload: true,
+        canUpload: true,
+        canDelete: true
+      }
     });
   }
     // カスタム認証処理でログインした場合のチェック
@@ -280,9 +262,8 @@ router.get("/status", (req, res) => {
         authenticated: true, 
         name: user.profile.name || user.profile.preferred_username || "ログイン中",
         provider: 'hydra',
-        email: userEmail,
-        custom: true,
-        authConfig: global.authList,
+        email: userEmail,        custom: true,
+        authConfig: currentAuthConfig,
         permissions: permissions
       });
     }
@@ -296,7 +277,7 @@ router.get("/status", (req, res) => {
         provider: 'hydra',
         email: userEmail,
         custom: true,
-        authConfig: global.authList,
+        authConfig: currentAuthConfig,
         permissions: permissions
       });
     }
@@ -309,7 +290,7 @@ router.get("/status", (req, res) => {
       provider: 'gitlab',
       avatar: user.avatar_url,
       custom: true,
-      authConfig: global.authList,
+      authConfig: currentAuthConfig,
       permissions: permissions
     });
   }
@@ -326,7 +307,7 @@ router.get("/status", (req, res) => {
         name: user._json.name || user.username,
         provider: 'gitlab',
         avatar: user._json.avatar_url,
-        authConfig: global.authList,
+        authConfig: currentAuthConfig,
         permissions: permissions
       });
     }
@@ -339,7 +320,7 @@ router.get("/status", (req, res) => {
         name: user.profile?.name || user.profile?.preferred_username || "ログイン中",
         provider: 'hydra',
         email: userEmail,
-        authConfig: global.authList,
+        authConfig: currentAuthConfig,
         permissions: permissions
       });
     }
@@ -352,15 +333,27 @@ router.get("/status", (req, res) => {
     res.json({ 
       authenticated: true, 
       name,      provider,
-      authConfig: global.authList,
+      authConfig: currentAuthConfig,
       permissions: permissions
-    });} else {
+    });    } else {
+    console.log('[/status] 認証なしモードではない、通常の認証フローへ');
     res.json({ 
       authenticated: false,
-      authConfig: global.authList,
+      authConfig: currentAuthConfig,
       permissions: null
     });
   }
+});
+
+// 認証設定取得API
+router.get('/config', (req, res) => {
+  const currentAuthConfig = global.authList || {
+    github: process.env.GITHUB === 'TRUE',
+    gitlab: process.env.GITLAB === 'TRUE',
+    hydra: process.env.HYDRA === 'TRUE',
+    noAuthRequired: !(process.env.GITHUB === 'TRUE' || process.env.GITLAB === 'TRUE' || process.env.HYDRA === 'TRUE')
+  };
+  res.json(currentAuthConfig);
 });
 
 // デバッグ用セッション情報API
@@ -371,29 +364,7 @@ router.get("/debug", (req, res) => {
     sessionKeys: Object.keys(req.session || {}),
     oauth2States: req.session?.oauth2States,
     isAuthenticated: req.isAuthenticated ? req.isAuthenticated() : false,
-    user: req.user || null  });
-});
-
-// 認証ステータス確認 + 権限情報取得
-router.get("/status", authMiddleware, async (req, res) => {
-  try {
-    const userEmail = req.user?.email;
-    const permissions = getUserPermissions(userEmail);
-    
-    res.json({
-      authenticated: true,
-      user: {
-        email: userEmail,
-        name: req.user?.name || req.user?.preferred_username,
-        id: req.user?.id || req.user?.sub
-      },
-      permissions: permissions,
-      authMethod: req.user?.authMethod || 'unknown'
-    });
-  } catch (error) {
-    console.error('[auth/status] エラー:', error);
-    res.status(500).json({ error: 'ステータス取得エラー' });
-  }
+  user: req.user || null  });
 });
 
 export default router;

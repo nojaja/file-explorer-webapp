@@ -1,4 +1,4 @@
-// 認可管理サービス - emailベースの権限制御
+// 認可管理サービス - emailベースの権限制御（複数ROOT_PATH対応）
 import fs from 'fs';
 import path from 'path';
 
@@ -9,13 +9,15 @@ let authorizationConfig = null;
  */
 export function initializeAuthorization() {
     try {
-        if (fs.existsSync(global.config.authorizationConfigPath)) {
-            const configData = fs.readFileSync(global.config.authorizationConfigPath, 'utf8');
+        const configPath = path.resolve(global.config.authorizationConfigPath);
+        if (fs.existsSync(configPath)) {
+            const configData = fs.readFileSync(configPath, 'utf8');
             authorizationConfig = JSON.parse(configData);
             console.log('[AuthorizationService] 認可設定読み込み完了');
             console.log('[AuthorizationService] ルール数:', authorizationConfig.authorization.rules.length);
+            console.log('[AuthorizationService] ROOT_PATH数:', authorizationConfig.rootPaths?.length || 0);
         } else {
-            console.warn('[AuthorizationService] 認可設定ファイルが見つかりません:', global.config.authorizationConfigPath);
+            console.warn('[AuthorizationService] 認可設定ファイルが見つかりません:', configPath);
             // デフォルト設定を作成
             createDefaultConfig();
         }
@@ -30,16 +32,29 @@ export function initializeAuthorization() {
  */
 function createDefaultConfig() {
     authorizationConfig = {
+        rootPaths: [
+            {
+                id: "main",
+                name: "メインデータ",
+                path: "./data",
+                description: "メインのデータディレクトリ",
+                isDefault: true
+            }
+        ],
         authorization: {
             rules: [
                 {
                     email: "admin@example.com",
-                    permission: "full",
+                    rootPathPermissions: {
+                        "main": "full"
+                    },
                     description: "システム管理者"
                 },
                 {
                     email: "testuser@example.com",
-                    permission: "full",
+                    rootPathPermissions: {
+                        "main": "full"
+                    },
                     description: "テストユーザー"
                 }
             ],
@@ -49,7 +64,7 @@ function createDefaultConfig() {
                     description: "フルアクセス",
                     canView: true,
                     canDownload: true,
-                    canUpload: true,
+                                        canUpload: true,
                     canDelete: true
                 },
                 readonly: {
@@ -67,54 +82,147 @@ function createDefaultConfig() {
                     canDelete: false
                 }
             }
+        },
+        metadata: {
+            version: "2.0.0",
+            lastUpdated: new Date().toISOString(),
+            description: "ファイルエクスプローラーWebアプリケーション認可設定 - 複数ROOT_PATH対応版"
         }
     };
     console.log('[AuthorizationService] デフォルト認可設定を使用');
 }
 
 /**
- * ユーザーの権限レベルを取得
- * @param {string} email - ユーザーのメールアドレス
- * @returns {string} - 権限レベル (full/readonly/denied)
+ * 利用可能なROOT_PATH一覧を取得
+ * @returns {Array} - ROOT_PATH一覧
  */
-export function getUserPermissionLevel(email) {
+export function getRootPaths() {
+    if (!authorizationConfig) {
+        initializeAuthorization();
+    }
+    
+    return authorizationConfig.rootPaths || [];
+}
+
+/**
+ * デフォルトROOT_PATHを取得
+ * @returns {Object|null} - デフォルトROOT_PATHオブジェクト
+ */
+export function getDefaultRootPath() {
+    const rootPaths = getRootPaths();
+    return rootPaths.find(rp => rp.isDefault) || rootPaths[0] || null;
+}
+
+/**
+ * ROOT_PATH IDから実際のパスを取得
+ * @param {string} rootPathId - ROOT_PATH ID
+ * @returns {string|null} - 実際のパス
+ */
+export function getRootPathById(rootPathId) {
+    const rootPaths = getRootPaths();
+    const rootPath = rootPaths.find(rp => rp.id === rootPathId);
+    return rootPath ? rootPath.path : null;
+}
+
+/**
+ * ユーザーがアクセス可能なROOT_PATH一覧を取得
+ * @param {string} email - ユーザーのメールアドレス
+ * @returns {Array} - アクセス可能なROOT_PATH一覧
+ */
+export function getUserAccessibleRootPaths(email) {
+    const rootPaths = getRootPaths();
+    const userRule = getUserRule(email);
+    
+    if (!userRule || !userRule.rootPathPermissions) {
+        return []; // アクセス権限がない場合は空配列
+    }
+    
+    return rootPaths.filter(rp => {
+        const permission = userRule.rootPathPermissions[rp.id];
+        return permission && permission !== 'denied';
+    }).map(rp => ({
+        ...rp,
+        permission: userRule.rootPathPermissions[rp.id]
+    }));
+}
+
+/**
+ * ユーザーの権限ルールを取得
+ * @param {string} email - ユーザーのメールアドレス
+ * @returns {Object|null} - 権限ルール
+ */
+function getUserRule(email) {
     if (!authorizationConfig) {
         initializeAuthorization();
     }
     
     const normalizedEmail = email.toLowerCase();
-    const rule = authorizationConfig.authorization.rules.find(r => 
+    return authorizationConfig.authorization.rules.find(r => 
         r.email.toLowerCase() === normalizedEmail
     );
+}
+
+/**
+ * ユーザーの特定ROOT_PATHでの権限レベルを取得
+ * @param {string} email - ユーザーのメールアドレス
+ * @param {string} rootPathId - ROOT_PATH ID
+ * @returns {string} - 権限レベル (full/readonly/denied)
+ */
+export function getUserPermissionLevel(email, rootPathId) {
+    const rule = getUserRule(email);
     
-    const permissionLevel = rule ? rule.permission : authorizationConfig.authorization.defaultPermission;
-    console.log(`[AuthorizationService] ${email} の権限レベル: ${permissionLevel}`);
+    if (!rule || !rule.rootPathPermissions) {
+        console.log(`[AuthorizationService] ${email} の ${rootPathId} 権限レベル: ${authorizationConfig.authorization.defaultPermission} (デフォルト)`);
+        return authorizationConfig.authorization.defaultPermission;
+    }
+    
+    const permissionLevel = rule.rootPathPermissions[rootPathId] || authorizationConfig.authorization.defaultPermission;
+    console.log(`[AuthorizationService] ${email} の ${rootPathId} 権限レベル: ${permissionLevel}`);
     return permissionLevel;
 }
 
 /**
- * ユーザーの権限詳細を取得
+ * ユーザーの特定ROOT_PATHでの権限詳細を取得
  * @param {string} email - ユーザーのメールアドレス
+ * @param {string} rootPathId - ROOT_PATH ID
  * @returns {Object} - 権限詳細オブジェクト
  */
-export function getUserPermissions(email) {
-    const permissionLevel = getUserPermissionLevel(email);
+export function getUserPermissions(email, rootPathId = null) {
+    // 後方互換性: rootPathIdが指定されていない場合はデフォルトROOT_PATHを使用
+    if (!rootPathId) {
+        const defaultRootPath = getDefaultRootPath();
+        rootPathId = defaultRootPath ? defaultRootPath.id : null;
+    }
+    
+    if (!rootPathId) {
+        return {
+            level: 'denied',
+            canView: false,
+            canDownload: false,
+            canUpload: false,
+            canDelete: false
+        };
+    }
+    
+    const permissionLevel = getUserPermissionLevel(email, rootPathId);
     const permissions = authorizationConfig.authorization.permissions[permissionLevel];
     
     return {
         level: permissionLevel,
+        rootPathId: rootPathId,
         ...permissions
     };
 }
 
 /**
- * ユーザーが特定の操作を実行できるかチェック
+ * ユーザーが特定ROOT_PATHで特定の操作を実行できるかチェック
  * @param {string} email - ユーザーのメールアドレス
  * @param {string} action - 操作種別 (view/download/upload/delete)
+ * @param {string} rootPathId - ROOT_PATH ID
  * @returns {boolean} - 実行可能かどうか
  */
-export function canUserPerformAction(email, action) {
-    const permissions = getUserPermissions(email);
+export function canUserPerformAction(email, action, rootPathId = null) {
+    const permissions = getUserPermissions(email, rootPathId);
     
     switch (action) {
         case 'view':
@@ -132,12 +240,13 @@ export function canUserPerformAction(email, action) {
 }
 
 /**
- * ユーザーのアクセス可否をチェック（認証段階で使用）
+ * ユーザーの特定ROOT_PATHへのアクセス可否をチェック（認証段階で使用）
  * @param {string} email - ユーザーのメールアドレス
+ * @param {string} rootPathId - ROOT_PATH ID
  * @returns {boolean} - アクセス可能かどうか
  */
-export function canUserAccess(email) {
-    const permissions = getUserPermissions(email);
+export function canUserAccess(email, rootPathId = null) {
+    const permissions = getUserPermissions(email, rootPathId);
     return permissions.canView; // ファイル一覧を見ることができるかどうか
 }
 
@@ -146,36 +255,54 @@ export function canUserAccess(email) {
  */
 
 /**
- * ユーザーの権限を設定
+ * ユーザーの特定ROOT_PATHでの権限を設定
  * @param {string} email - ユーザーのメールアドレス
+ * @param {string} rootPathId - ROOT_PATH ID
  * @param {string} permission - 権限レベル (full/readonly/denied)
  * @param {string} description - 説明
  */
-export function setUserPermission(email, permission, description = '') {
+export function setUserRootPathPermission(email, rootPathId, permission, description = '') {
     if (!authorizationConfig) {
         initializeAuthorization();
     }
     
     const normalizedEmail = email.toLowerCase();
-    const existingIndex = authorizationConfig.authorization.rules.findIndex(r => 
-        r.email.toLowerCase() === normalizedEmail
-    );
+    let rule = getUserRule(normalizedEmail);
     
-    const rule = {
-        email: normalizedEmail,
-        permission,
-        description
-    };
-    
-    if (existingIndex >= 0) {
-        authorizationConfig.authorization.rules[existingIndex] = rule;
-        console.log(`[AuthorizationService] 権限更新: ${email} -> ${permission}`);
-    } else {
+    if (!rule) {
+        rule = {
+            email: normalizedEmail,
+            rootPathPermissions: {},
+            description: description || `${email}の権限設定`
+        };
         authorizationConfig.authorization.rules.push(rule);
-        console.log(`[AuthorizationService] 権限追加: ${email} -> ${permission}`);
     }
     
+    if (!rule.rootPathPermissions) {
+        rule.rootPathPermissions = {};
+    }
+    
+    rule.rootPathPermissions[rootPathId] = permission;
+    
+    if (description) {
+        rule.description = description;
+    }
+    
+    console.log(`[AuthorizationService] 権限設定: ${email} の ${rootPathId} -> ${permission}`);
     saveConfig();
+}
+
+/**
+ * ユーザーの権限を設定（後方互換性）
+ * @param {string} email - ユーザーのメールアドレス
+ * @param {string} permission - 権限レベル (full/readonly/denied)
+ * @param {string} description - 説明
+ */
+export function setUserPermission(email, permission, description = '') {
+    const defaultRootPath = getDefaultRootPath();
+    if (defaultRootPath) {
+        setUserRootPathPermission(email, defaultRootPath.id, permission, description);
+    }
 }
 
 /**
@@ -216,8 +343,9 @@ export function getAllPermissions() {
  */
 function saveConfig() {
     try {
+        const configPath = path.resolve(global.config.authorizationConfigPath);
         // data ディレクトリが存在しない場合は作成
-        const dataDir = path.dirname(global.config.authorizationConfigPath);
+        const dataDir = path.dirname(configPath);
         if (!fs.existsSync(dataDir)) {
             fs.mkdirSync(dataDir, { recursive: true });
         }
@@ -227,7 +355,7 @@ function saveConfig() {
             lastUpdated: new Date().toISOString()
         };
         
-        fs.writeFileSync(global.config.authorizationConfigPath, JSON.stringify(authorizationConfig, null, 2), 'utf8');
+        fs.writeFileSync(configPath, JSON.stringify(authorizationConfig, null, 2), 'utf8');
         console.log('[AuthorizationService] 認可設定保存完了');
     } catch (error) {
         console.error('[AuthorizationService] 設定保存エラー:', error);

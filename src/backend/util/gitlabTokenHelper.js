@@ -14,8 +14,6 @@ export async function getGitLabToken(code, clientId, clientSecret, callbackUrl) 
     const gitlabInternalUrl = global.authConfig.gitlab.GITLAB_TOKEN_URL_INTERNAL;
     const tokenEndpoint = `${gitlabInternalUrl}`;
 
-    console.log(`[gitlabTokenHelper] トークン取得リクエスト: ${tokenEndpoint}`);
-
     const requestBody = {
       client_id: clientId,
       client_secret: clientSecret,
@@ -39,7 +37,6 @@ export async function getGitLabToken(code, clientId, clientSecret, callbackUrl) 
     }
 
     const tokenData = await response.json();
-    console.log('[gitlabTokenHelper] トークン取得成功');
     return tokenData;
   } catch (error) {
     console.error('[gitlabTokenHelper] トークン取得例外:', error);
@@ -58,8 +55,6 @@ export async function getGitLabUserInfo(accessToken) {
     const gitlabInternalUrl = global.authConfig.gitlab.GITLAB_USERINFO_URL_INTERNAL;
     const userInfoUrl = `${gitlabInternalUrl}`;
 
-    console.log(`[gitlabTokenHelper] ユーザー情報取得リクエスト: ${userInfoUrl}`);
-
     const response = await fetch(userInfoUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -73,7 +68,6 @@ export async function getGitLabUserInfo(accessToken) {
     }
 
     const userData = await response.json();
-    console.log('[gitlabTokenHelper] ユーザー情報取得成功');
     return userData;
   } catch (error) {
     console.error('[gitlabTokenHelper] ユーザー情報取得例外:', error);

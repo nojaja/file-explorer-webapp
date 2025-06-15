@@ -16,27 +16,19 @@ export async function getHydraToken(code, clientId, clientSecret, callbackUrl, s
         const hydraTokenUrl = global.authConfig.hydra.HYDRA_TOKEN_URL_INTERNAL;
         const tokenEndpoint = `${hydraTokenUrl}`;
 
-        console.log(`[hydraTokenHelper] トークン取得リクエスト: ${tokenEndpoint}`);        // OAuth2の標準に従ってapplication/x-www-form-urlencodedで送信
-        const requestParams = new URLSearchParams();
-        requestParams.append('client_id', clientId);
-        requestParams.append('client_secret', clientSecret);
-        requestParams.append('code', code);
-        requestParams.append('grant_type', 'authorization_code');
-        requestParams.append('redirect_uri', callbackUrl);
-
-        // stateが指定されている場合は追加
-        if (state) {
-            requestParams.append('state', state);
-        }
-
-        console.log(`[hydraTokenHelper] リクエストボディ: ${requestParams.toString()}`);
-
         const response = await fetch(tokenEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
-            body: requestParams.toString()
+            body: new URLSearchParams({
+                'client_id': clientId,
+                'client_secret': clientSecret,
+                'code': code,
+                'grant_type': 'authorization_code',
+                'redirect_uri': callbackUrl,
+                ...(state && { 'state': state })
+            }).toString()
         });
 
         if (!response.ok) {
@@ -46,7 +38,6 @@ export async function getHydraToken(code, clientId, clientSecret, callbackUrl, s
         }
 
         const tokenData = await response.json();
-        console.log('[hydraTokenHelper] トークン取得成功');
         return tokenData;
     } catch (error) {
         console.error('[hydraTokenHelper] トークン取得例外:', error);
@@ -65,8 +56,6 @@ export async function getHydraUserInfo(accessToken) {
         const hydraUserInfoUrl = global.authConfig.hydra.HYDRA_USERINFO_URL_INTERNAL;
         const userInfoUrl = `${hydraUserInfoUrl}`;
 
-        console.log(`[hydraTokenHelper] ユーザー情報取得リクエスト: ${userInfoUrl}`);
-
         const response = await fetch(userInfoUrl, {
             headers: {
                 'Authorization': `Bearer ${accessToken}`
@@ -80,7 +69,6 @@ export async function getHydraUserInfo(accessToken) {
         }
 
         const userData = await response.json();
-        console.log('[hydraTokenHelper] ユーザー情報取得成功');
         return userData;
     } catch (error) {
         console.error('[hydraTokenHelper] ユーザー情報取得例外:', error);
@@ -98,8 +86,6 @@ export async function acceptLoginChallenge(loginChallenge, subject = 'test-user'
     try {
         const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const acceptUrl = `${hydraAdminUrl}/admin/oauth2/auth/requests/login/accept`;
-
-        console.log(`[hydraTokenHelper] ログインチャレンジ受け入れリクエスト: ${acceptUrl}?login_challenge=${loginChallenge}`);
 
         const response = await fetch(`${acceptUrl}?login_challenge=${encodeURIComponent(loginChallenge)}`, {
             method: 'PUT',
@@ -121,7 +107,6 @@ export async function acceptLoginChallenge(loginChallenge, subject = 'test-user'
         }
 
         const acceptData = await response.json();
-        console.log('[hydraTokenHelper] ログインチャレンジ受け入れ成功');
         return acceptData;
     } catch (error) {
         console.error('[hydraTokenHelper] ログインチャレンジ受け入れ例外:', error);
@@ -141,8 +126,7 @@ export async function acceptConsentChallenge(consentChallenge, scopes = ['openid
         const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const acceptUrl = `${hydraAdminUrl}/admin/oauth2/auth/requests/consent/accept`;
 
-        console.log(`[hydraTokenHelper] コンセントチャレンジ受け入れリクエスト: ${acceptUrl}?consent_challenge=${consentChallenge}`);
-          // ユーザー情報をパースしてIDトークンに含める
+        // ユーザー情報をパースしてIDトークンに含める
         let idTokenClaims = { 
             'name': 'test-user',
             'email': 'testuser@example.com', // デフォルトemail
@@ -157,7 +141,6 @@ export async function acceptConsentChallenge(consentChallenge, scopes = ['openid
                     'email': parsedUserInfo.email || 'testuser@example.com', // emailが空の場合デフォルト値
                     'email_verified': true // メール検証済みとして扱う
                 };
-                console.log('[hydraTokenHelper] ユーザー情報をIDトークンに追加:', idTokenClaims);
             } catch (parseError) {
                 console.warn('[hydraTokenHelper] ユーザー情報パースエラー:', parseError);
                 idTokenClaims['name'] = userInfo.toString();
@@ -188,7 +171,6 @@ export async function acceptConsentChallenge(consentChallenge, scopes = ['openid
         }
 
         const acceptData = await response.json();
-        console.log('[hydraTokenHelper] コンセントチャレンジ受け入れ成功');
         return acceptData;
     } catch (error) {
         console.error('[hydraTokenHelper] コンセントチャレンジ受け入れ例外:', error);
@@ -208,8 +190,6 @@ export async function rejectConsentChallenge(consentChallenge, error = 'access_d
         const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const rejectUrl = `${hydraAdminUrl}/oauth2/auth/requests/consent/reject`;
 
-        console.log(`[hydraTokenHelper] コンセントチャレンジ拒否リクエスト: ${rejectUrl}?consent_challenge=${consentChallenge}`);
-
         const response = await fetch(`${rejectUrl}?consent_challenge=${encodeURIComponent(consentChallenge)}`, {
             method: 'PUT',
             headers: {
@@ -228,7 +208,6 @@ export async function rejectConsentChallenge(consentChallenge, error = 'access_d
         }
 
         const rejectData = await response.json();
-        console.log('[hydraTokenHelper] コンセントチャレンジ拒否成功');
         return rejectData;
     } catch (error) {
         console.error('[hydraTokenHelper] コンセントチャレンジ拒否例外:', error);
@@ -246,8 +225,6 @@ export async function getConsentRequest(consentChallenge) {
         const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const requestUrl = `${hydraAdminUrl}/oauth2/auth/requests/consent`;
 
-        console.log(`[hydraTokenHelper] コンセントリクエスト取得: ${requestUrl}?consent_challenge=${consentChallenge}`);
-
         const response = await fetch(`${requestUrl}?consent_challenge=${encodeURIComponent(consentChallenge)}`);
 
         if (!response.ok) {
@@ -257,7 +234,6 @@ export async function getConsentRequest(consentChallenge) {
         }
 
         const requestData = await response.json();
-        console.log('[hydraTokenHelper] コンセントリクエスト取得成功');
         return requestData;
     } catch (error) {
         console.error('[hydraTokenHelper] コンセントリクエスト取得例外:', error);

@@ -8,31 +8,37 @@
 </head>
 <body>
   <header>ファイルエクスプローラ</header>
-  <div class="container">
-    <div id="auth-area">
-      <!-- ログイン状態・ユーザー名はmain.jsで動的に追加 -->
-      <button class="login-btn github" onclick="location.href='/auth/github'" style="display: none;">GitHubでログイン</button>
-      <button class="login-btn gitlab" onclick="location.href='/auth/gitlab'" style="display: none;">GitLabでログイン</button>
-      <button class="login-btn hydra" onclick="location.href='/auth/hydra'" style="display: none;">hydraでログイン</button>
-      <button class="login-btn" id="logout-btn" style="display:none; background:#d32f2f;" onclick="logout()">ログアウト</button>
-    </div>
-    <div id="error" class="error" style="display:none;"></div>
-    <nav id="breadcrumb" style="margin-bottom:1rem; font-size:1rem;"></nav>
-    <!-- 親フォルダに戻るボタンはmain.jsで動的に追加 -->
-    <!-- ファイル一覧更新ボタンはmain.jsでログイン時のみ動的に追加 -->
-    <table id="file-table" style="display:none;">
-      <thead>
-        <tr>
-          <th>名前</th>
-          <th>種類</th>
-          <th>サイズ</th>
-          <th>更新日時</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="file-list">
-      </tbody>
-    </table>
+  <div class="container layout" >
+    <aside id="sidebar">
+      <div id="sidebar-auth" class="sidebar-auth">
+        <span id="login-status-span"></span>
+      </div>
+      <div id="root-tree-container"></div>
+      <!-- ここに他のサイドバー要素を追加可能 -->
+    </aside>
+    <main id="main-content" style="display: none;">
+      <div class="file-card">
+        <nav id="breadcrumb"></nav>
+        <div id="file-toolbar" class="file-toolbar">
+          <button id="parent-btn" class="icon-btn" title="親フォルダへ"><span class="material-icons">arrow_upward</span></button>
+          <button id="refresh-btn" class="refresh-btn" title="リフレッシュ"><span class="material-icons">refresh</span>リフレッシュ</button>
+        </div>
+        <div id="error" class="error" style="display:none;"></div>
+        <table id="file-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>名前</th>
+              <th>種類</th>
+              <th>サイズ</th>
+              <th>更新日時</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="file-list">
+          </tbody>
+        </table>
+      </div>
+    </main>
   </div>
   <script src="main.js"></script>
 </body>

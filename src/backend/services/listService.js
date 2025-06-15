@@ -1,9 +1,32 @@
 import fs from "fs/promises";
 import path from "path";
-const ROOT_PATH = process.env.ROOT_PATH || "./data";
+import { getRootPathById, getDefaultRootPath } from "./authorizationService.js";
 
-// TODO データの形式は { path: relPath, files: [{ name: 'file1.txt', type: 'file'/'folder', size: 1234, mtime: '2023-10-01T12:00:00Z' }, ...] }
-export async function getList(relPath) {
+/**
+ * 指定されたROOT_PATH IDとパスでファイル一覧を取得
+ * @param {string} relPath - 相対パス
+ * @param {string} rootPathId - ROOT_PATH ID（省略時はデフォルトROOT_PATH）
+ * @returns {Object} - ファイル一覧とパス情報
+ */
+export async function getList(relPath, rootPathId = null) {
+  // ROOT_PATH IDが指定されていない場合はデフォルトを使用
+  if (!rootPathId) {
+    const defaultRootPath = getDefaultRootPath();
+    rootPathId = defaultRootPath ? defaultRootPath.id : null;
+  }
+  
+  if (!rootPathId) {
+    throw new Error("ROOT_PATHが設定されていません");
+  }
+  
+  // ROOT_PATH IDから実際のパスを取得
+  const ROOT_PATH = getRootPathById(rootPathId);
+  if (!ROOT_PATH) {
+    throw new Error(`ROOT_PATH ID '${rootPathId}' が見つかりません`);
+  }
+  
+  console.log(`[ListService] ROOT_PATH: ${ROOT_PATH}, rootPathId: ${rootPathId}, relPath: ${relPath}`);
+  
   // relPath が undefined や null の場合を考慮して、空文字列にフォールバックする
   const currentRelPath = relPath || "";
   const absPath = path.join(ROOT_PATH, currentRelPath);
@@ -60,7 +83,11 @@ export async function getList(relPath) {
     // ディレクトリを先、名前順
     if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
     return a.name.localeCompare(b.name);
-  });
-  // 返すパスは、入力された relPath (または空文字列) をそのまま使う
-  return { path: currentRelPath, files };
+  });  // 返すパスは、入力された relPath (または空文字列) をそのまま使う
+  return { 
+    path: currentRelPath, 
+    files,
+    rootPathId: rootPathId,
+    rootPath: ROOT_PATH
+  };
 }

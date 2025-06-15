@@ -11,6 +11,7 @@ import downloadRouter from "./routes/download.js";
 import deleteRouter from "./routes/delete.js";
 import authRouter from "./routes/auth.js";
 import testAuthRouter from "./routes/test-auth.js";
+import rootPathsRouter from "./routes/rootpaths.js";
 import { Strategy as GitLabStrategy } from "passport-gitlab2";
 import { 
   acceptLoginChallenge, 
@@ -23,6 +24,7 @@ import { gitlabUrlReplaceMiddleware } from "./middlewares/gitlabUrlReplace.js";
 import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
 import { loginUser, isEmailAuthorized, initializeAllowedEmails} from "./services/userService.js";
 import { initializeAuthorization } from "./services/authorizationService.js";
+import cors from "cors"; // CORSミドルウェアをインポート
 // .env読込
 dotenv.config();
 
@@ -58,10 +60,11 @@ global.authConfig = {
   }
 };
 global.config = {
-  authorizationConfigPath: process.env.AUTHORIZATION_CONFIG_PATH || "./authorization-config.json"
+  authorizationConfigPath: process.env.AUTHORIZATION_CONFIG_PATH || path.resolve(process.cwd(), "conf/authorization-config.json")
 }
 
 console.log('[認証設定]', global.authList, global.authConfig, global.config);
+console.log('[認証設定] 認可設定ファイルパス:', global.config.authorizationConfigPath);
 
 // Handlebarsテンプレートヘルパー関数（後で定義される__dirnameを使用）
 let templatesDir;
@@ -74,6 +77,13 @@ initializeAllowedEmails();
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS設定（フロントエンドが同一オリジンでない場合は環境変数で指定）
+const allowedOrigin = process.env.FRONTEND_ORIGIN || "http://localhost:3000";
+app.use(cors({
+  origin: allowedOrigin,
+  credentials: true
+}));
+
 // セッション
 app.set("trust proxy", 1);
 app.use(session({
@@ -84,7 +94,8 @@ app.use(session({
     secure: false,
     sameSite: "lax",
     maxAge: 1000 * 60 * 60,
-    httpOnly: true  // セキュリティ向上のため追加
+    httpOnly: true,  // セキュリティ向上のため追加
+    path: "/"
   },
   name: "file-explorer-session",  // セッション名を明示的に設定
   rolling: true  // アクセスごとにセッション期限をリセット
@@ -134,10 +145,12 @@ app.use("/styles", (req, res, next) => {
 
 // JSONボディ
 app.use(express.json());
+
 // ルーティング
 app.use("/api/list", listRouter);
 app.use("/api/download", downloadRouter);
 app.use("/api/delete", deleteRouter);
+app.use("/api/rootpaths", rootPathsRouter);
 app.use("/test/auth", testAuthRouter);
 app.use("/auth", authRouter);
 app.use("/test/auth", testAuthRouter);

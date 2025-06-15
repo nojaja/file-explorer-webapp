@@ -8,40 +8,46 @@ import { canUserAccess, canUserPerformAction, getUserPermissions } from "../serv
  * リクエストヘッダーのAuthorizationトークンをチェックして認証状態を確認
  */
 export async function authMiddleware(req, res, next) {
+    console.log('[authMiddleware] req.headers.cookie:', req.headers.cookie);
+
     // 認証が無効な場合はスキップ
     if (global.authList.noAuthRequired) {
         console.log('[authMiddleware] 認証なしモード');
         return next();
     }
 
+    // セッション認証（GitLab, GitHub, Hydraのいずれか）
+    if (req.isAuthenticated && req.isAuthenticated()) {
+        console.log('[authMiddleware] セッション認証OK:', req.user);
+        return next();
+    }
+    if (req.session && req.session.user) {
+        console.log('[authMiddleware] セッションuser認証OK:', req.session.user);
+        req.user = req.session.user;
+        return next();
+    }
+
+    // Bearerトークン認証（Hydra用）
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        console.log('[authMiddleware] 認証ヘッダーが見つかりません');
-        return res.status(401).json({ 
-            error: 'Unauthorized', 
-            message: '認証が必要です。ログインしてください。' 
-        });
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        try {
+            const userInfo = await getHydraUserInfo(token);
+            console.log('[authMiddleware] Bearer認証OK:', userInfo);
+            req.user = userInfo;
+            req.accessToken = token;
+            return next();
+        } catch (error) {
+            console.error('[authMiddleware] Bearer認証エラー:', error);
+        }
     }
 
-    const token = authHeader.substring(7); // 'Bearer ' を除去
-
-    try {
-        // Hydraからユーザー情報を取得
-        const userInfo = await getHydraUserInfo(token);
-        console.log('[authMiddleware] ユーザー情報取得成功:', userInfo);
-        
-        // ユーザー情報をリクエストに追加
-        req.user = userInfo;
-        req.accessToken = token;
-        
-        next();
-    } catch (error) {
-        console.error('[authMiddleware] 認証エラー:', error);
-        return res.status(401).json({ 
-            error: 'Unauthorized', 
-            message: '無効な認証トークンです。再度ログインしてください。' 
-        });
-    }
+    // どちらもなければ401
+    console.log('[authMiddleware] 認証情報なし');
+    return res.status(401).json({
+        error: 'Unauthorized',
+        message: '認証が必要です。ログインしてください。'
+    });
 }
 
 /**

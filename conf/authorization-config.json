@@ -1,29 +1,72 @@
 {
+  "rootPaths": [
+    {
+      "id": "main",
+      "name": "メインデータ",
+      "path": "/data",
+      "description": "メインのデータディレクトリ",
+      "isDefault": true
+    },
+    {
+      "id": "app",
+      "name": "アプリケーション",
+      "path": "/app",
+      "description": "アプリケーション用ディレクトリ",
+      "isDefault": false
+    },
+    {
+      "id": "etc",
+      "name": "設定ファイル",
+      "path": "/etc",
+      "description": "設定ファイル用ディレクトリ",
+      "isDefault": false
+    }
+  ],
   "authorization": {
     "rules": [
       {
         "email": "gitlab_admin_953f7c@example.com",
-        "permission": "readonly",
-        "description": "システム管理者 - フルアクセス"
+        "rootPathPermissions": {
+          "main": "readonly",
+          "app": "full",
+          "etc": "denied"
+        },
+        "description": "システム管理者 - ROOT_PATH毎の権限設定"
       },
       {
         "email": "admin@example.com",
-        "permission": "full",
-        "description": "システム管理者 - フルアクセス"
+        "rootPathPermissions": {
+          "main": "full",
+          "app": "full",
+          "etc": "full"
+        },
+        "description": "システム管理者 - 全ROOT_PATHフルアクセス"
       },
       {
         "email": "testuser@example.com",
-        "permission": "full",
-        "description": "テストユーザー - フルアクセス"
+        "rootPathPermissions": {
+          "main": "full",
+          "app": "readonly",
+          "etc": "readonly"
+        },
+        "description": "テストユーザー - メインフルアクセス、その他読み取り専用"
       },
       {
         "email": "readonly@example.com",
-        "permission": "readonly",
-        "description": "読み取り専用ユーザー - 削除不可"
+        "rootPathPermissions": {
+          "main": "readonly",
+          "app": "denied",
+          "etc": "denied"
+        },
+        "description": "読み取り専用ユーザー - メインのみ読み取り可能"
       },
       {
         "email": "blocked@example.com",
-        "permission": "denied",
+        "rootPathPermissions": {
+          "main": "denied",
+          "app": "denied",
+          "etc": "denied"
+        },
         "description": "アクセス拒否ユーザー"
       }
     ],
@@ -53,8 +96,8 @@
     }
   },
   "metadata": {
-    "version": "1.0.0",
-    "lastUpdated": "2025-06-03T09:00:00Z",
-    "description": "ファイルエクスプローラーWebアプリケーション認可設定"
+    "version": "2.0.0",
+    "lastUpdated": "2025-06-14T13:00:00Z",
+    "description": "ファイルエクスプローラーWebアプリケーション認可設定 - 複数ROOT_PATH対応版"
   }
 }

@@ -13,6 +13,7 @@ services:
     depends_on:
       - gitlab
       - hydra
+      - hydra-init
   gitlab:
     image: gitlab/gitlab-ce:latest
     hostname: 'gitlab.local'

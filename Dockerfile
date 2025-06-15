@@ -17,6 +17,7 @@ RUN apk add --no-cache ca-certificates
 # 静的バイナリを生成
 #RUN pkg build/bundle.js --targets node18-alpine-x64 --output app.bin
 RUN pkg build/bundle.js --targets node18-linuxstatic-x64 --output app.bin
+
 # /app ディレクトリの内容を確認
 #RUN ls -la /app
 
@@ -31,6 +32,7 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 COPY --from=builder /app/src/frontend/ ./src/frontend/
 # CSSファイルをコピー
 COPY --from=builder /app/src/styles/ ./src/styles/
+
 # ポートを公開
 EXPOSE 3000
 # エントリポイント

@@ -89,4 +89,28 @@ router.get('/config', (req, res) => {
     }
 });
 
+// デバッグ用のHydra設定確認エンドポイント
+router.get('/hydra-config', (req, res) => {
+    try {
+        const hydraConfig = {
+            HYDRA_CLIENT_ID: global.authConfig?.hydra?.HYDRA_CLIENT_ID,
+            HYDRA_CALLBACK_URL: global.authConfig?.hydra?.HYDRA_CALLBACK_URL,
+            HYDRA_AUTH_URL: global.authConfig?.hydra?.HYDRA_AUTH_URL,
+            HYDRA_TOKEN_URL_INTERNAL: global.authConfig?.hydra?.HYDRA_TOKEN_URL_INTERNAL,
+            HYDRA_ADMIN_URL: global.authConfig?.hydra?.HYDRA_ADMIN_URL,
+            HYDRA_ADMIN_URL_INTERNAL: global.authConfig?.hydra?.HYDRA_ADMIN_URL_INTERNAL,
+            HYDRA_USERINFO_URL_INTERNAL: global.authConfig?.hydra?.HYDRA_USERINFO_URL_INTERNAL,
+            HYDRA_SCOPE: global.authConfig?.hydra?.HYDRA_SCOPE
+        };
+        
+        res.json({
+            hydraConfig,
+            timestamp: new Date().toISOString(),
+            debugNote: 'This is a debug endpoint for Hydra configuration verification'
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 export default router;
