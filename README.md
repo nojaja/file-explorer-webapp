@@ -29,7 +29,7 @@ docker run --env-file .env -p 3000:3000 file-explorer-webapp
 
 ### モジュールや依存パッケージ、コードの更新を確実に反映するには：
 
-```
+```sh
 docker-compose up -d --force-recreate --build app
 ```
 - これにより、appサービスのイメージを再ビルドし、コンテナを強制再作成します。

@@ -1,17 +1,10 @@
 export default {
   testEnvironment: 'node',
-  transform: {},
-  moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1'
+  transform: {
+    '^.+\\.[jt]sx?$': ['babel-jest', { configFile: './babel.config.cjs' }]
   },
-  testPathIgnorePatterns: [
-    '<rootDir>/test/e2e/',
-    '<rootDir>/test/.*\\.spec\\.[jt]s$'
-  ],
-  testMatch: ['**/?(*.)+(test).[jt]s', '**/?(*.)+(test).mjs'],
-  transformIgnorePatterns: [
-    'node_modules/'
-  ],
-  preset: undefined,
-  setupFilesAfterEnv: ['<rootDir>/test/setup.js']
-};
+  moduleFileExtensions: ['js', 'mjs', 'json'],
+  setupFilesAfterEnv: ['./test/setup.js'],
+  verbose: true,
+  testMatch: ['<rootDir>/test/unit/**/*.test.js']
+}

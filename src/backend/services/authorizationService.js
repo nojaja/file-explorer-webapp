@@ -2,7 +2,7 @@
 import fs from 'fs';
 import path from 'path';
 
-let authorizationConfig = null;
+export let authorizationConfig = null;
 
 /**
  * 認可設定を初期化・読み込み
