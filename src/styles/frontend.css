@@ -352,6 +352,32 @@ tr:hover {
   background: #b71c1c !important;
 }
 
+
+.dragover-upload {
+  position: relative;
+  /* upload-area風のカバー */
+  box-shadow: 0 0 0 4px #1976d2 inset;
+  background: rgba(248,250,252,0.95) !important;
+  border: 2px dashed #1976d2 !important;
+  border-radius: 8px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.dragover-upload::after {
+  content: 'ここにファイルをドロップしてアップロード';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #1976d2;
+  font-size: 1.3em;
+  font-weight: bold;
+  background: rgba(255,255,255,0.85);
+  padding: 1em 2em;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(25,118,210,0.08);
+}
 @media (max-width: 900px) {
   .container.layout {
     flex-direction: column;

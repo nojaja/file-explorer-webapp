@@ -11,6 +11,20 @@ let selectedRootPath = null; // 選択中のROOT_PATH
 let authConfig = null; // 認証設定
 //ファイルが更新されたか確認するためのタイムスタンプ
 /**
+ * 指定ROOT_PATHのユーザー権限を取得
+ * @param {string} rootPathId
+ * @returns {Promise<Object>} 権限オブジェクト
+ */
+async function fetchUserPermissionsForRootPath(rootPathId) {
+  if (!rootPathId) return null;
+  const url = `/api/permissions?rootPathId=${encodeURIComponent(rootPathId)}`;
+  const res = await fetch(url, { credentials: 'include' });
+  if (!res.ok) throw new Error('権限情報の取得に失敗しました');
+  const data = await res.json();
+  return data.permissions;
+}
+
+/**
  * ROOT_PATH一覧を取得
  */
 async function fetchRootPaths() {
@@ -58,6 +72,9 @@ async function selectRootPath(rootPathId) {
     
     const data = await res.json();
     selectedRootPath = data.selectedRootPath;
+    // 権限を取得し直す
+    userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+    updateUploadAreaVisibility();
     
     console.log('[ROOT_PATH] 選択完了:', selectedRootPath);
     
@@ -99,6 +116,11 @@ async function fetchFiles(path = '') {
     if (!res.ok) throw new Error('ファイル一覧取得に失敗しました');
     const data = await res.json();
     currentPath = path;
+    // 権限を取得し直す
+    if (selectedRootPath && selectedRootPath.id) {
+      userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+      updateUploadAreaVisibility();
+    }
     renderFiles(data.files || []);
     renderBreadcrumb(path ? path.split('/').filter(Boolean) : []); // ルート
     renderParentButton();
@@ -304,6 +326,11 @@ window.changeDir = async function(path) {
     if (!res.ok) throw new Error('ディレクトリ取得に失敗しました');
     const data = await res.json();
     currentPath = path;
+    // 権限を取得し直す
+    if (selectedRootPath && selectedRootPath.id) {
+      userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+      updateUploadAreaVisibility();
+    }
     renderFiles(data.files || []);
     renderBreadcrumb(path.split('/').filter(Boolean));
     renderParentButton();
@@ -386,9 +413,10 @@ async function updateLoginStatus() {
       	 'none': '認証なし',
       	 'unknown': 'OAuth'
       }[providerName] || 'OAuth';
-      
+      // ユーザー名取得（displayName優先、なければusername）
+      const userName = (data.user && (data.user.displayName || data.user.username)) ? (data.user.displayName || data.user.username) : '';
       let loginStatusHtml = `
-      ログイン中: <span style="font-weight:bold;">${data.name || ''}</span>
+      ログイン中: <span style="font-weight:bold;">${userName}</span>
       <span class="badge ${providerName}">${providerLabel}</span>
       `;
       const statusDiv = document.createElement('div');
@@ -479,6 +507,11 @@ window.onload = async function() {
   // 認証状態の更新
   await updateLoginStatus();
   renderRootPathTree();
+  // 初期表示時に権限取得
+  if (selectedRootPath && selectedRootPath.id) {
+    userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+    updateUploadAreaVisibility();
+  }
   // ファイルツールバーのボタンイベント
   const parentBtn = document.getElementById('parent-btn');
   const refreshBtn = document.getElementById('refresh-btn');
@@ -496,3 +529,89 @@ window.onload = async function() {
     refreshBtn.onclick = () => fetchFiles(currentPath);
   }
 };
+
+window.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('file-input');
+  const uploadBtn = document.getElementById('upload-btn');
+  const uploadProgress = document.getElementById('upload-progress');
+
+  function updateUploadAreaVisibility() {
+    // upload-area削除済みのため何もしない
+  }
+
+  // 権限取得後に呼び出す
+  window.updateUploadAreaVisibility = updateUploadAreaVisibility;
+
+  if (uploadBtn) {
+    uploadBtn.onclick = () => fileInput.click();
+  }
+  if (fileInput) {
+    fileInput.onchange = (e) => {
+      if (fileInput.files && fileInput.files.length > 0) {
+        handleUpload(fileInput.files);
+        fileInput.value = '';
+      }
+    };
+  }
+  if (fileTable) {
+    fileTable.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      fileTable.classList.add('dragover-upload');
+    });
+    fileTable.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      if (!fileTable.contains(e.relatedTarget)) {
+        fileTable.classList.remove('dragover-upload');
+      }
+    });
+    fileTable.addEventListener('drop', (e) => {
+      e.preventDefault();
+      fileTable.classList.remove('dragover-upload');
+      if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        handleUpload(e.dataTransfer.files);
+      }
+    });
+  }
+
+  // 不要になったupload-area要素を削除
+  const oldUploadArea = document.getElementById('upload-area');
+  if (oldUploadArea && oldUploadArea.parentElement) {
+    oldUploadArea.parentElement.removeChild(oldUploadArea);
+  }
+
+  async function handleUpload(files) {
+    if (!userPermissions || !userPermissions.canUpload) {
+      alert('アップロード権限がありません');
+      return;
+    }
+    if (!selectedRootPath || !selectedRootPath.id) {
+      alert('アップロード先ROOT_PATHが未選択です');
+      return;
+    }
+    uploadProgress.style.display = '';
+    uploadProgress.textContent = 'アップロード中...';
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append('files', file);
+    }
+    formData.append('rootPathId', selectedRootPath.id);
+    formData.append('path', currentPath || '');
+    try {
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        uploadProgress.textContent = 'アップロード完了: ' + data.uploaded.join(', ');
+        fetchFiles(currentPath);
+      } else {
+        uploadProgress.textContent = 'アップロード失敗: ' + (data.error || '不明なエラー');
+      }
+    } catch (e) {
+      uploadProgress.textContent = 'アップロード失敗: ' + e.message;
+    }
+    setTimeout(() => { uploadProgress.style.display = 'none'; }, 2000);
+  }
+});

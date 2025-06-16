@@ -12,6 +12,8 @@ import deleteRouter from "./routes/delete.js";
 import authRouter from "./routes/auth.js";
 import testAuthRouter from "./routes/test-auth.js";
 import rootPathsRouter from "./routes/rootpaths.js";
+import uploadRouter from "./routes/upload.js";
+import permissionsRouter from "./routes/permissions.js";
 import { Strategy as GitLabStrategy } from "passport-gitlab2";
 import { 
   acceptLoginChallenge, 
@@ -151,6 +153,8 @@ app.use("/api/list", listRouter);
 app.use("/api/download", downloadRouter);
 app.use("/api/delete", deleteRouter);
 app.use("/api/rootpaths", rootPathsRouter);
+app.use("/api/upload", uploadRouter);
+app.use("/api/permissions", permissionsRouter);
 app.use("/test/auth", testAuthRouter);
 app.use("/auth", authRouter);
 app.use("/test/auth", testAuthRouter);

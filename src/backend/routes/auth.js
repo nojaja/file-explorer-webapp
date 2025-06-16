@@ -238,7 +238,12 @@ router.get("/status", (req, res) => {
   if (currentAuthConfig.noAuthRequired) {
     return res.json({ 
       authenticated: true, 
-      name: "ゲスト", 
+      user: {
+        email: null,
+        username: 'guest',
+        displayName: 'ゲスト',
+        avatar: null
+      },
       provider: 'none',
       authConfig: currentAuthConfig,
       permissions: {
@@ -251,94 +256,62 @@ router.get("/status", (req, res) => {
       }
     });
   }
+
+  // ユーザー情報の共通化関数
+  function normalizeUser(u) {
+    if (!u) return { email: null, username: null, displayName: null, avatar: null };
+    // Hydra profile
+    if (u.profile) {
+      return {
+        email: u.profile.email || null,
+        username: u.profile.preferred_username || u.profile.name || null,
+        displayName: u.profile.name || u.profile.preferred_username || null,
+        avatar: u.profile.picture || null
+      };
+    }
+    // GitLab _json
+    if (u._json) {
+      return {
+        email: u._json.email || null,
+        username: u._json.username || null,
+        displayName: u._json.name || u._json.username || null,
+        avatar: u._json.avatar_url || null
+      };
+    }
+    // GitLab/カスタム
+    return {
+      email: u.email || null,
+      username: u.username || u.name || null,
+      displayName: u.name || u.username || null,
+      avatar: u.avatar_url || null
+    };
+  }
+
+  let user = null;
     // カスタム認証処理でログインした場合のチェック
   if (req.session?.isAuthenticated && req.session?.user) {
-    const user = req.session.user;
-      // カスタムHydra認証によるユーザー情報の場合（profile構造を持つ）
-    if (req.session.idToken && user.profile) {
-      const userEmail = user.profile.email || 'testuser@example.com';
-      const permissions = getUserPermissions(userEmail);
-      return res.json({ 
-        authenticated: true, 
-        name: user.profile.name || user.profile.preferred_username || "ログイン中",
-        provider: 'hydra',
-        email: userEmail,        custom: true,
-        authConfig: currentAuthConfig,
-        permissions: permissions
-      });
-    }
-    // カスタムHydra認証によるユーザー情報の場合（直接構造）
-    if (req.session.idToken) {
-      const userEmail = user.email || 'testuser@example.com';
-      const permissions = getUserPermissions(userEmail);
-      return res.json({ 
-        authenticated: true, 
-        name: user.name || "ログイン中",
-        provider: 'hydra',
-        email: userEmail,
-        custom: true,
-        authConfig: currentAuthConfig,
-        permissions: permissions
-      });
-    }
-      // カスタムGitLab認証によるユーザー情報の場合
-    const userEmail = user.email || user.name + '@example.com';
-    const permissions = getUserPermissions(userEmail);
-    return res.json({ 
-      authenticated: true, 
-      name: user.name || user.username || "ログイン中",
-      provider: 'gitlab',
-      avatar: user.avatar_url,
-      custom: true,
-      authConfig: currentAuthConfig,
-      permissions: permissions
-    });
+    user = req.session.user;
+  } else if (req.isAuthenticated && req.isAuthenticated()) {
+    user = req.user;
   }
   
-  // 通常のPassport認証チェック
-  if (req.isAuthenticated && req.isAuthenticated()) {
-    // passport-github2/gitlab2はprofile.displayName, hydraはprofile等
-    const user = req.user || {};    // GitLabの場合
-    if (user._json && user._json.name) {
-      const userEmail = user._json.email || user.username + '@example.com';
-      const permissions = getUserPermissions(userEmail);
+  const userInfo = normalizeUser(user);
+  const email = userInfo.email || (userInfo.username ? userInfo.username + '@example.com' : null);
+  const permissions = email ? getUserPermissions(email) : null;
+
+  if (email) {
       return res.json({ 
         authenticated: true, 
-        name: user._json.name || user.username,
-        provider: 'gitlab',
-        avatar: user._json.avatar_url,
+      user: userInfo,
+      provider: user && user.provider ? user.provider : (user && user.profile ? 'hydra' : 'gitlab'),
         authConfig: currentAuthConfig,
-        permissions: permissions
+      permissions
       });
-    }
-      // Hydraの場合
-    if (user.profile) {
-      const userEmail = user.profile?.email || 'testuser@example.com';
-      const permissions = getUserPermissions(userEmail);
+  } else {
       return res.json({
-        authenticated: true,
-        name: user.profile?.name || user.profile?.preferred_username || "ログイン中",
-        provider: 'hydra',
-        email: userEmail,
-        authConfig: currentAuthConfig,
-        permissions: permissions
-      });
-    }
-    
-    // GitHub/その他の場合
-    let name = user.displayName || user.username || "ログイン中";
-    let provider = user.provider || 'unknown';
-    const userEmail = user.email || user.emails?.[0]?.value || name + '@example.com';
-    const permissions = getUserPermissions(userEmail);
-    res.json({ 
-      authenticated: true, 
-      name,      provider,
-      authConfig: currentAuthConfig,
-      permissions: permissions
-    });    } else {
-    console.log('[/status] 認証なしモードではない、通常の認証フローへ');
-    res.json({ 
       authenticated: false,
+      user: userInfo,
+      provider: null,
       authConfig: currentAuthConfig,
       permissions: null
     });
