@@ -340,9 +340,8 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
     const fileTable = page.locator('#file-table');
     await expect(fileTable).toBeVisible({ timeout: 5000 });
 
-    // ダウンロードリンクまたはボタンを取得
-    // 例: <a class="download-link" href="/download/test.json">ダウンロード</a>
-    const downloadLink = page.locator('a.download-link, button.download-btn');
+    // authorization-config.json のダウンロードリンクだけを取得
+    const downloadLink = page.getByRole('row', { name: /authorization-config\.json/ }).getByRole('link');
     await expect(downloadLink).toBeVisible();
 
     // ダウンロードリクエストを監視
@@ -350,7 +349,7 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
       page.waitForResponse(response =>
         response.url().includes('/download') && response.status() === 200
       ),
-      downloadLink.first().click()
+      downloadLink.click()
     ]);
 
     // Content-Dispositionヘッダーでファイル名を確認
@@ -390,16 +389,14 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
     const fileTable = page.locator('#file-table');
     await expect(fileTable).toBeVisible({ timeout: 5000 });
 
-    // ダウンロードリンクを取得
-    const downloadLink = page.locator('a.download-link');
+    // authorization-config.json のダウンロードリンクだけを取得
+    const downloadLink = page.getByRole('row', { name: /authorization-config\.json/ }).getByRole('link');
     await expect(downloadLink).toBeVisible();
-    // ダウンロードリンクが1つだけであることを保証
-    await expect(downloadLink).toHaveCount(1);
-
+    // 1件のみでOK
     // Playwrightのダウンロードイベントを利用
     const [ download ] = await Promise.all([
       page.waitForEvent('download'),
-      downloadLink.first().click()
+      downloadLink.click()
     ]);
     // 一時ファイルとして保存し内容を取得（非同期I/Oで修正）
     const path = await download.path();
@@ -427,12 +424,11 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
     const logoutBtn = page.locator('#logout-btn');
     await expect(logoutBtn).toBeVisible();
 
-    // ダウンロードリンクが1つだけであることを保証（API直叩きでもUIの状態を確認）
-    const downloadLink = page.locator('a.download-link');
-    await expect(downloadLink).toHaveCount(1);
-
+    // authorization-config.json のダウンロードリンクだけを取得
+    const downloadLink = page.getByRole('row', { name: /authorization-config\.json/ }).getByRole('link');
+    await expect(downloadLink).toBeVisible();
     // context.requestで認証済みセッションを使ってAPIを叩く
-    const res = await context.request.get(`${baseUrl}/api/download/file?path=test.json`);
+    const res = await context.request.get(`${baseUrl}/api/download/file?path=authorization-config.json`);
     expect(res.status()).toBe(200);
     const contentDisposition = res.headers()['content-disposition'] || '';
     expect(contentDisposition).toMatch(/attachment/);
