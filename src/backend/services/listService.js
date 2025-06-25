@@ -38,7 +38,7 @@ import { getRootPathById, getDefaultRootPath } from "./authorizationService.js";
  * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
  */
 
-// --- パストラバーサル対策付きスマートコンストラクタ ---
+// --- スマートコンストラクタ: パス検証 ---
 /**
  * ROOT_PATH配下の安全な絶対パスを生成（パストラバーサル防止）
  * @param {string} ROOT_PATH
@@ -46,9 +46,6 @@ import { getRootPathById, getDefaultRootPath } from "./authorizationService.js";
  * @returns {Result<string>} 絶対パス or エラー
  */
 function createAbsPath(ROOT_PATH, relPath) {
-  if (typeof relPath !== 'string' || relPath.includes('..') || relPath.startsWith('/') || /^[a-zA-Z]:\\/.test(relPath)) {
-    return { ok: false, error: new Error('不正なパス指定です。') };
-  }
   const normalizedRelPath = path.normalize(relPath).replace(/^([/\\])+/, '');
   if (normalizedRelPath.includes('..')) {
     return { ok: false, error: new Error('不正なパス指定です。') };
