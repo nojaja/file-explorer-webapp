@@ -8,6 +8,72 @@ import { getRootPathById, getDefaultRootPath } from "./authorizationService.js";
  * @param {string} rootPathId - ROOT_PATH ID（省略時はデフォルトROOT_PATH）
  * @returns {Object} - ファイル一覧とパス情報
  */
+// --- Functional Domain Modeling 型定義 ---
+/** @typedef {string & { readonly brand: 'RelPath' }} RelPath */
+/** @typedef {string & { readonly brand: 'RootPathId' }} RootPathId */
+/** @typedef {string & { readonly brand: 'AbsPath' }} AbsPath */
+
+/**
+ * ファイルエントリ型
+ * @typedef {Object} FileEntry
+ * @property {string} name
+ * @property {'dir'|'file'} type
+ * @property {number|undefined} size
+ * @property {string} mtime
+ * @property {string} path
+ */
+
+/**
+ * ファイル一覧取得結果型
+ * @typedef {Object} ListResult
+ * @property {string} path
+ * @property {FileEntry[]} files
+ * @property {string} rootPathId
+ * @property {string} rootPath
+ */
+
+/**
+ * 成功/失敗を表すResult型
+ * @template T
+ * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
+ */
+
+// --- パストラバーサル対策付きスマートコンストラクタ ---
+/**
+ * ROOT_PATH配下の安全な絶対パスを生成（パストラバーサル防止）
+ * @param {string} ROOT_PATH
+ * @param {string} relPath
+ * @returns {Result<string>} 絶対パス or エラー
+ */
+function createAbsPath(ROOT_PATH, relPath) {
+  if (typeof relPath !== 'string' || relPath.includes('..') || relPath.startsWith('/') || /^[a-zA-Z]:\\/.test(relPath)) {
+    return { ok: false, error: new Error('不正なパス指定です。') };
+  }
+  const normalizedRelPath = path.normalize(relPath).replace(/^([/\\])+/, '');
+  if (normalizedRelPath.includes('..')) {
+    return { ok: false, error: new Error('不正なパス指定です。') };
+  }
+  const absPath = path.join(ROOT_PATH, normalizedRelPath);
+  const resolvedAbsPath = path.resolve(absPath);
+  const resolvedRootPath = path.resolve(ROOT_PATH);
+  if (!resolvedAbsPath.startsWith(resolvedRootPath)) {
+    return { ok: false, error: new Error('不正なパスへのアクセス。') };
+  }
+  return { ok: true, value: resolvedAbsPath };
+}
+
+// --- 純粋関数: ファイルエントリ生成 ---
+function toFileEntry(entry, stat, currentRelPath, resolvedAbsPath) {
+  return {
+    name: entry.name,
+    type: entry.isDirectory() ? 'dir' : 'file',
+    size: entry.isFile() ? stat.size : undefined,
+    mtime: stat.mtime.toISOString(),
+    path: path.join(currentRelPath, entry.name)
+  };
+}
+
+// --- ドメインサービス本体 ---
 export async function getList(relPath, rootPathId = null) {
   // ROOT_PATH IDが指定されていない場合はデフォルトを使用
   if (!rootPathId) {
@@ -29,35 +95,21 @@ export async function getList(relPath, rootPathId = null) {
   
   // relPath が undefined や null の場合を考慮して、空文字列にフォールバックする
   const currentRelPath = relPath || "";
-  const absPath = path.join(ROOT_PATH, currentRelPath);
-
-  // パストラバーサル攻撃の基本的な対策
-  // path.resolve を使って正規化し、それが ROOT_PATH の内部であることを確認する
-  const resolvedAbsPath = path.resolve(absPath);
-  const resolvedRootPath = path.resolve(ROOT_PATH);
-
-  if (!resolvedAbsPath.startsWith(resolvedRootPath)) {
-    console.error(
-      `[SECURITY] Attempt to access path outside ROOT_PATH: relPath='${currentRelPath}', resolvedAbsPath='${resolvedAbsPath}', resolvedRootPath='${resolvedRootPath}'`
-    );
-    // 適切なエラーレスポンスを返すか、エラーを投げる
-    const err = new Error("不正なパスへのアクセス。");
-    // err.status = 403; // HTTPステータスコードを設定できるとより良い
-    throw err;
+  // パス検証（スマートコンストラクタ）
+  const absPathResult = createAbsPath(ROOT_PATH, currentRelPath);
+  if (!absPathResult.ok) {
+    console.error(`[SECURITY] Attempt to access path outside ROOT_PATH: relPath='${currentRelPath}'`);
+    throw absPathResult.error;
   }
+  const resolvedAbsPath = absPathResult.value;
 
   let entries;
   try {
     entries = await fs.readdir(resolvedAbsPath, { withFileTypes: true });
   } catch (err) {
-    // readdir でエラーが発生した場合 (例: パスが存在しない、アクセス権がない)
     console.error(`ディレクトリ ${resolvedAbsPath} の読み取りに失敗した: ${err.message}`);
-    // エラーを投げるか、空のリストを返すか。
-    const newErr = new Error(`ディレクトリ '${currentRelPath}' が見つからないか、アクセスできない。`);
-    // newErr.status = 404;
-    throw newErr;
+    throw new Error(`ディレクトリ '${currentRelPath}' が見つからないか、アクセスできない。`);
   }
-
   const files = [];
   for (const entry of entries) {
     const entryPath = path.join(resolvedAbsPath, entry.name);
@@ -65,29 +117,21 @@ export async function getList(relPath, rootPathId = null) {
     try {
       stat = await fs.stat(entryPath);
     } catch (e) {
-      // stat でエラーが発生した場合 (例: シンボリックリンクが切れている、アクセス権がない)
-      // これをログに出力することで、何がスキップされたか追跡しやすくなる。
       console.warn(`ファイル/ディレクトリ ${entryPath} の情報取得に失敗し、スキップする: ${e.message}`);
-      continue; // アクセスできないファイルはスキップ
+      continue;
     }
-    files.push({
-      name: entry.name,
-      type: entry.isDirectory() ? 'dir' : 'file',
-      size: entry.isFile() ? stat.size : undefined,
-      mtime: stat.mtime.toISOString(),
-      // currentRelPath と entry.name を結合して、このエントリの相対パスを生成する
-      path: path.join(currentRelPath, entry.name)
-    });
+    files.push(toFileEntry(entry, stat, currentRelPath, resolvedAbsPath));
   }
   files.sort((a, b) => {
-    // ディレクトリを先、名前順
     if (a.type !== b.type) return a.type === 'dir' ? -1 : 1;
     return a.name.localeCompare(b.name);
-  });  // 返すパスは、入力された relPath (または空文字列) をそのまま使う
-  return { 
-    path: currentRelPath, 
+  });
+  /** @type {ListResult} */
+  const result = {
+    path: currentRelPath,
     files,
     rootPathId: rootPathId,
     rootPath: ROOT_PATH
   };
+  return result;
 }

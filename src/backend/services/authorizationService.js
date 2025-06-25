@@ -362,3 +362,27 @@ function saveConfig() {
     }
 }
 
+// --- Functional Domain Modeling 型定義 ---
+/** @typedef {string & { readonly brand: 'Email' }} Email */
+/** @typedef {string & { readonly brand: 'RootPathId' }} RootPathId */
+/** @typedef {"full"|"readonly"|"denied"} PermissionLevel */
+/**
+ * 認可ルール型
+ * @typedef {Object} AuthorizationRule
+ * @property {Email} email
+ * @property {Object.<RootPathId, PermissionLevel>} rootPathPermissions
+ * @property {string} description
+ */
+/**
+ * 成功/失敗を表すResult型
+ * @template T
+ * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
+ */
+// --- 純粋関数: 認可判定 ---
+function getUserPermission(email, rootPathId) {
+  if (!authorizationConfig) return { ok: false, error: new Error('認可設定未ロード') };
+  const rule = authorizationConfig.authorization.rules.find(r => r.email === email);
+  if (!rule) return { ok: true, value: authorizationConfig.authorization.defaultPermission };
+  return { ok: true, value: rule.rootPathPermissions[rootPathId] || authorizationConfig.authorization.defaultPermission };
+}
+

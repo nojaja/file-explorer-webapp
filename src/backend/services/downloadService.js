@@ -3,6 +3,30 @@ import fsSync from "fs";
 import archiver from "archiver";
 import { getRootPathById, getDefaultRootPath } from "./authorizationService.js";
 
+// --- パストラバーサル対策付きスマートコンストラクタ ---
+/**
+ * ROOT_PATH配下の安全な絶対パスを生成（パストラバーサル防止）
+ * @param {string} ROOT_PATH
+ * @param {string} relPath
+ * @returns {Result<string>} 絶対パス or エラー
+ */
+function createAbsPath(ROOT_PATH, relPath) {
+  if (typeof relPath !== 'string' || relPath.includes('..') || relPath.startsWith('/') || /^[a-zA-Z]:\\/.test(relPath)) {
+    return { ok: false, error: new Error('不正なパス指定です。') };
+  }
+  const normalizedRelPath = path.normalize(relPath).replace(/^([/\\])+/, '');
+  if (normalizedRelPath.includes('..')) {
+    return { ok: false, error: new Error('不正なパス指定です。') };
+  }
+  const absPath = path.join(ROOT_PATH, normalizedRelPath);
+  const resolvedAbsPath = path.resolve(absPath);
+  const resolvedRootPath = path.resolve(ROOT_PATH);
+  if (!resolvedAbsPath.startsWith(resolvedRootPath)) {
+    return { ok: false, error: new Error('不正なパスへのアクセス。') };
+  }
+  return { ok: true, value: resolvedAbsPath };
+}
+
 export async function downloadFile(req, res) {
   try {
     const relPath = req.query.path;
@@ -29,14 +53,12 @@ export async function downloadFile(req, res) {
     
     console.log(`[DownloadService] ROOT_PATH: ${ROOT_PATH}, rootPathId: ${targetRootPathId}, relPath: ${relPath}`);
     
-    const absPath = path.join(ROOT_PATH, relPath);
-    // パストラバーサル攻撃の基本的な対策
-    const resolvedAbsPath = path.resolve(absPath);
-    const resolvedRootPath = path.resolve(ROOT_PATH);
-    if (!resolvedAbsPath.startsWith(resolvedRootPath)) {
-      console.error(`[SECURITY] 不正なパスへのアクセス: relPath='${relPath}'`);
-      return res.status(403).json({ error: "不正なパスへのアクセス。" });
+    const absPathResult = createAbsPath(ROOT_PATH, relPath);
+    if (!absPathResult.ok) {
+      return res.status(403).json({ error: absPathResult.error.message });
     }
+    const resolvedAbsPath = absPathResult.value;
+    
     // ファイルの存在チェック
     if (!fsSync.existsSync(resolvedAbsPath)) return res.status(404).json({ error: "ファイルが存在しません" });
     // Content-Dispositionヘッダーを明示的に付与し、ファイル名を安全にエンコード
@@ -82,14 +104,13 @@ export async function downloadFolderZip(req, res) {
     
     console.log(`[DownloadService] Folder ZIP: ROOT_PATH=${ROOT_PATH}, rootPathId=${targetRootPathId}, relPath=${relPath}`);
     
-    const absPath = path.join(ROOT_PATH, relPath);
-    // パストラバーサル攻撃の基本的な対策
-    const resolvedAbsPath = path.resolve(absPath);
-    const resolvedRootPath = path.resolve(ROOT_PATH);
-    if (!resolvedAbsPath.startsWith(resolvedRootPath)) {
-      console.error(`[SECURITY] 不正なパスへのアクセス: relPath='${relPath}'`);
-      return res.status(403).json({ error: "不正なパスへのアクセス。" });
-    }    if (!fsSync.existsSync(resolvedAbsPath)) return res.status(404).json({ error: "フォルダが存在しません" });
+    const absPathResult = createAbsPath(ROOT_PATH, relPath);
+    if (!absPathResult.ok) {
+      return res.status(403).json({ error: absPathResult.error.message });
+    }
+    const resolvedAbsPath = absPathResult.value;
+    
+    if (!fsSync.existsSync(resolvedAbsPath)) return res.status(404).json({ error: "フォルダが存在しません" });
     res.setHeader("Content-Type", "application/zip");
     const fileName = encodeURIComponent(path.basename(relPath));
     res.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${fileName}.zip`);

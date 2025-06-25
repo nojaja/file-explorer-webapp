@@ -112,29 +112,26 @@ app.use(gitlabUrlReplaceMiddleware);
 // Hydra URL置換ミドルウェア
 app.use(hydraUrlReplaceMiddleware);
 
-// 静的ファイルの配信
-// DockerのランタイムステージのWORKDIR /app を基準にする
-// process.cwd() は /app を指す想定
+// dist配下のバンドルを静的配信（catch-allより前に追加）
+app.use('/dist', express.static(path.join(process.cwd(), 'dist')));
+// 既存のfrontend, styles配信
 app.use(express.static(path.join(process.cwd(), "src/frontend")));
 // CSS ファイルの配信（正しいMIMEタイプを設定）
 app.use("/styles", (req, res, next) => {
   const cssPath = path.join(process.cwd(), "src/styles");
   console.log(`[CSS middleware] リクエストパス: ${req.path}, フルパス: ${req.originalUrl}, ファイルパス: ${cssPath}`);
   console.log(`[CSS middleware] process.cwd(): ${process.cwd()}`);
-  
   // ファイル存在確認のためのデバッグ情報
   try {
     const fs = require('fs');
     const files = fs.readdirSync(cssPath);
     console.log(`[CSS middleware] stylesディレクトリ内のファイル:`, files);
-    
     const requestedFile = path.join(cssPath, req.path);
     const exists = fs.existsSync(requestedFile);
     console.log(`[CSS middleware] 要求されたファイル: ${requestedFile}, 存在: ${exists}`);
   } catch (error) {
     console.error(`[CSS middleware] ファイル確認エラー:`, error);
   }
-  
   next();
 }, express.static(path.join(process.cwd(), "src/styles"), {
   setHeaders: (res, filePath) => {

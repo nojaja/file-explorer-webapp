@@ -1,13 +1,65 @@
+// --- Functional Domain Modeling 型定義 ---
+/** @typedef {string & { readonly brand: 'RootPathId' }} RootPathId */
+/** @typedef {string & { readonly brand: 'RelPath' }} RelPath */
+/**
+ * ファイルエントリ型
+ * @typedef {Object} FileEntry
+ * @property {string} name
+ * @property {'dir'|'file'} type
+ * @property {number|undefined} size
+ * @property {string} mtime
+ * @property {string} path
+ */
+/**
+ * ROOT_PATH型
+ * @typedef {Object} RootPath
+ * @property {RootPathId} id
+ * @property {string} name
+ * @property {string} path
+ * @property {string} [description]
+ * @property {string} [permission]
+ */
+/**
+ * 権限型
+ * @typedef {Object} Permission
+ * @property {boolean} canView
+ * @property {boolean} canDownload
+ * @property {boolean} canUpload
+ * @property {boolean} canDelete
+ */
+/**
+ * UI状態型
+ * @typedef {Object} UIState
+ * @property {RootPath|null} selectedRootPath
+ * @property {string} currentPath
+ * @property {Permission|null} userPermissions
+ */
+/**
+ * 成功/失敗を表すResult型
+ * @template T
+ * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
+ */
+// --- スマートコンストラクタ: パス検証 ---
+function createRelPath(path) {
+  if (typeof path !== 'string') return { ok: false, error: new Error('パスが不正です') };
+  if (path.includes('..')) return { ok: false, error: new Error('不正なパス') };
+  return { ok: true, value: path };
+}
+// --- UI状態の初期化 ---
+/** @type {UIState} */
+let uiState = {
+  selectedRootPath: null,
+  currentPath: '',
+  userPermissions: null
+};
+
 // ...ファイル一覧取得・描画・操作UIの雛形...
 const fileTable = document.getElementById('file-table');
 const fileList = document.getElementById('file-list');
 const errorDiv = document.getElementById('error');
 const logoutBtn = document.getElementById('logout-btn');
 let loginStatusSpan;
-let currentPath = '';
-let userPermissions = null; // ユーザー権限情報を保存
 let rootPaths = []; // 利用可能なROOT_PATH一覧
-let selectedRootPath = null; // 選択中のROOT_PATH
 let authConfig = null; // 認証設定
 //ファイルが更新されたか確認するためのタイムスタンプ
 /**
@@ -41,9 +93,9 @@ async function fetchRootPaths() {
     rootPaths = data.rootPaths || [];
     
     // デフォルトROOT_PATHを設定
-    if (rootPaths.length > 0 && !selectedRootPath) {
+    if (rootPaths.length > 0 && !uiState.selectedRootPath) {
       const defaultRootPath = data.defaultRootPath || rootPaths[0];
-      selectedRootPath = defaultRootPath;
+      uiState.selectedRootPath = defaultRootPath;
     }
     
     console.log('[ROOT_PATH] 一覧取得完了:', rootPaths);
@@ -71,18 +123,18 @@ async function selectRootPath(rootPathId) {
     if (!res.ok) throw new Error('ROOT_PATH選択に失敗しました');
     
     const data = await res.json();
-    selectedRootPath = data.selectedRootPath;
+    uiState.selectedRootPath = data.selectedRootPath;
     // 権限を取得し直す
-    userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+    uiState.userPermissions = await fetchUserPermissionsForRootPath(uiState.selectedRootPath.id);
     updateUploadAreaVisibility();
     
-    console.log('[ROOT_PATH] 選択完了:', selectedRootPath);
+    console.log('[ROOT_PATH] 選択完了:', uiState.selectedRootPath);
     
     // ROOT_PATH一覧の表示を更新
     renderRootPathList();
     
     // ファイル一覧を再取得（ルートディレクトリから）
-    currentPath = '';
+    uiState.currentPath = '';
     await fetchFiles('');
     
   } catch (e) {
@@ -102,8 +154,8 @@ async function fetchFiles(path = '') {
     }
     
     // 選択中のROOT_PATHがある場合はパラメータに追加
-    if (selectedRootPath && selectedRootPath.id) {
-      params.append('rootPathId', selectedRootPath.id);
+    if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
+      params.append('rootPathId', uiState.selectedRootPath.id);
     }
     
     if (params.toString()) {
@@ -115,10 +167,10 @@ async function fetchFiles(path = '') {
     const res = await fetch(url, { credentials: 'include' });
     if (!res.ok) throw new Error('ファイル一覧取得に失敗しました');
     const data = await res.json();
-    currentPath = path;
+    uiState.currentPath = path;
     // 権限を取得し直す
-    if (selectedRootPath && selectedRootPath.id) {
-      userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+    if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
+      uiState.userPermissions = await fetchUserPermissionsForRootPath(uiState.selectedRootPath.id);
       updateUploadAreaVisibility();
     }
     renderFiles(data.files || []);
@@ -140,13 +192,13 @@ function renderFiles(files) {
     const isDir = f.type === 'dir';
     
     // 削除ボタンの表示制御
-    const canDelete = userPermissions?.canDelete ?? true;
+    const canDelete = uiState.userPermissions?.canDelete ?? true;
     const deleteButton = canDelete 
       ? `<button class="icon-btn" title="削除" onclick="deleteFile('${f.path}')"><span class="material-icons">delete</span></button>`
       : '';
     
     // ダウンロードURL生成（ROOT_PATHを考慮）
-    const rootPathParam = selectedRootPath && selectedRootPath.id ? `&rootPathId=${selectedRootPath.id}` : '';
+    const rootPathParam = uiState.selectedRootPath && uiState.selectedRootPath.id ? `&rootPathId=${uiState.selectedRootPath.id}` : '';
     const downloadFileUrl = `/api/download/file?path=${encodeURIComponent(f.path)}${rootPathParam}`;
     const downloadFolderUrl = `/api/download/folder?path=${encodeURIComponent(f.path)}${rootPathParam}`;
     
@@ -183,9 +235,9 @@ function renderBreadcrumb(pathArr) {
   bc.innerHTML = '';
   
   // ROOT_PATH名を最初に表示
-  if (selectedRootPath) {
+  if (uiState.selectedRootPath) {
     const rootSpan = document.createElement('span');
-    rootSpan.textContent = selectedRootPath.name || 'root';
+    rootSpan.textContent = uiState.selectedRootPath.name || 'root';
     rootSpan.className = 'breadcrumb-item root-path';
     rootSpan.style.fontWeight = 'bold';
     rootSpan.style.color = '#009688';
@@ -235,23 +287,23 @@ function renderRootPathList() {
       <div id="root-path-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
         ${rootPaths.map(rp => `
           <button 
-            class="root-path-btn ${selectedRootPath && selectedRootPath.id === rp.id ? 'selected' : ''}"
+            class="root-path-btn ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? 'selected' : ''}"
             onclick="selectRootPath('${rp.id}')"
             title="${rp.description || rp.name}"
             style="
               padding: 0.4rem 0.8rem; 
-              border: 1px solid ${selectedRootPath && selectedRootPath.id === rp.id ? '#009688' : '#ddd'}; 
+              border: 1px solid ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '#009688' : '#ddd'}; 
               border-radius: 4px; 
-              background: ${selectedRootPath && selectedRootPath.id === rp.id ? '#e0f2f1' : '#fff'}; 
-              color: ${selectedRootPath && selectedRootPath.id === rp.id ? '#009688' : '#333'}; 
+              background: ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '#e0f2f1' : '#fff'}; 
+              color: ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '#009688' : '#333'}; 
               cursor: pointer; 
               font-size: 0.9rem;
-              font-weight: ${selectedRootPath && selectedRootPath.id === rp.id ? '600' : '400'};
+              font-weight: ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '600' : '400'};
               transition: all 0.2s;
             "
           >
             <span class="material-icons" style="vertical-align: middle; margin-right: 0.3rem; font-size: 1rem;">
-              ${selectedRootPath && selectedRootPath.id === rp.id ? 'radio_button_checked' : 'radio_button_unchecked'}
+              ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? 'radio_button_checked' : 'radio_button_unchecked'}
             </span>
             ${rp.name}
             <span style="font-size: 0.8rem; color: #666; margin-left: 0.3rem;">(${rp.permission || 'unknown'})</span>
@@ -287,12 +339,12 @@ function renderRootPathTree() {
   ul.style.padding = '0';
   rootPaths.forEach(rp => {
     const li = document.createElement('li');
-    li.className = 'root-tree-item' + (selectedRootPath && selectedRootPath.id === rp.id ? ' selected' : '');
+    li.className = 'root-tree-item' + (uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? ' selected' : '');
 
     li.textContent = rp.name || rp.path || String(rp);
     li.style.cursor = 'pointer';
     li.style.padding = '0.3em 0.5em';
-    if (selectedRootPath && selectedRootPath.id === rp.id) {
+    if (uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id) {
       li.style.background = '#e0f2f1';
       li.style.color = '#009688';
       li.style.fontWeight = 'bold';
@@ -314,8 +366,8 @@ window.changeDir = async function(path) {
     }
     
     // 選択中のROOT_PATHがある場合はパラメータに追加
-    if (selectedRootPath && selectedRootPath.id) {
-      params.append('rootPathId', selectedRootPath.id);
+    if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
+      params.append('rootPathId', uiState.selectedRootPath.id);
     }
     
     if (params.toString()) {
@@ -325,10 +377,10 @@ window.changeDir = async function(path) {
     const res = await fetch(url);
     if (!res.ok) throw new Error('ディレクトリ取得に失敗しました');
     const data = await res.json();
-    currentPath = path;
+    uiState.currentPath = path;
     // 権限を取得し直す
-    if (selectedRootPath && selectedRootPath.id) {
-      userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+    if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
+      uiState.userPermissions = await fetchUserPermissionsForRootPath(uiState.selectedRootPath.id);
       updateUploadAreaVisibility();
     }
     renderFiles(data.files || []);
@@ -345,7 +397,7 @@ window.changeDir = async function(path) {
 
 window.deleteFile = async function(path) {
   // 削除権限チェック
-  if (userPermissions && !userPermissions.canDelete) {
+  if (uiState.userPermissions && !uiState.userPermissions.canDelete) {
     alert('削除権限がありません。');
     return;
   }
@@ -357,8 +409,8 @@ window.deleteFile = async function(path) {
   params.append('path', path);
   
   // 選択中のROOT_PATHがある場合はパラメータに追加
-  if (selectedRootPath && selectedRootPath.id) {
-    params.append('rootPathId', selectedRootPath.id);
+  if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
+    params.append('rootPathId', uiState.selectedRootPath.id);
   }
   
   url += '?' + params.toString();
@@ -381,7 +433,7 @@ window.logout = async function() {
 function updateFileToolbar() {
   const parentBtn = document.getElementById('parent-btn');
   if (!parentBtn) return;
-  if (!currentPath || currentPath === '' || currentPath === undefined) {
+  if (!uiState.currentPath || uiState.currentPath === '' || uiState.currentPath === undefined) {
     parentBtn.disabled = true;
     parentBtn.classList.add('disabled');
   } else {
@@ -437,7 +489,7 @@ async function updateLoginStatus() {
       const mainContent = document.getElementById('main-content');
       mainContent.style.display = '';
       await fetchRootPaths();
-      fetchFiles(currentPath);
+      fetchFiles(uiState.currentPath);
       window.isAuthenticated = true;
     } else {
 
@@ -486,8 +538,8 @@ async function updateLoginStatus() {
 function renderParentButton() {
   let btn = document.getElementById('parent-dir-btn');
   if (btn) btn.remove();
-  if (!currentPath || currentPath === '') return;
-  const parts = currentPath.split('/').filter(Boolean);
+  if (!uiState.currentPath || uiState.currentPath === '') return;
+  const parts = uiState.currentPath.split('/').filter(Boolean);
   if (parts.length === 0) return;
   parts.pop();
   const parentPath = parts.join('/');
@@ -508,8 +560,8 @@ window.onload = async function() {
   await updateLoginStatus();
   renderRootPathTree();
   // 初期表示時に権限取得
-  if (selectedRootPath && selectedRootPath.id) {
-    userPermissions = await fetchUserPermissionsForRootPath(selectedRootPath.id);
+  if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
+    uiState.userPermissions = await fetchUserPermissionsForRootPath(uiState.selectedRootPath.id);
     updateUploadAreaVisibility();
   }
   // ファイルツールバーのボタンイベント
@@ -517,8 +569,8 @@ window.onload = async function() {
   const refreshBtn = document.getElementById('refresh-btn');
   if (parentBtn) {
     parentBtn.onclick = () => {
-      if (!currentPath) return;
-      const parts = currentPath.split('/').filter(Boolean);
+      if (!uiState.currentPath) return;
+      const parts = uiState.currentPath.split('/').filter(Boolean);
       if (parts.length === 0) return;
       parts.pop();
       const parentPath = parts.join('/');
@@ -526,7 +578,7 @@ window.onload = async function() {
     };
   }
   if (refreshBtn) {
-    refreshBtn.onclick = () => fetchFiles(currentPath);
+    refreshBtn.onclick = () => fetchFiles(uiState.currentPath);
   }
 };
 
@@ -580,11 +632,11 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   async function handleUpload(files) {
-    if (!userPermissions || !userPermissions.canUpload) {
+    if (!uiState.userPermissions || !uiState.userPermissions.canUpload) {
       alert('アップロード権限がありません');
       return;
     }
-    if (!selectedRootPath || !selectedRootPath.id) {
+    if (!uiState.selectedRootPath || !uiState.selectedRootPath.id) {
       alert('アップロード先ROOT_PATHが未選択です');
       return;
     }
@@ -594,8 +646,8 @@ window.addEventListener('DOMContentLoaded', () => {
     for (const file of files) {
       formData.append('files', file);
     }
-    formData.append('rootPathId', selectedRootPath.id);
-    formData.append('path', currentPath || '');
+    formData.append('rootPathId', uiState.selectedRootPath.id);
+    formData.append('path', uiState.currentPath || '');
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -605,7 +657,7 @@ window.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
       if (res.ok && data.success) {
         uploadProgress.textContent = 'アップロード完了: ' + data.uploaded.join(', ');
-        fetchFiles(currentPath);
+        fetchFiles(uiState.currentPath);
       } else {
         uploadProgress.textContent = 'アップロード失敗: ' + (data.error || '不明なエラー');
       }

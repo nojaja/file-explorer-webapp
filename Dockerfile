@@ -12,6 +12,9 @@ RUN npm ci
 RUN npm install -g pkg@latest webpack webpack-cli
 # バックエンドをビルドしてバンドル（CommonJS）
 RUN webpack --config webpack.backend.config.js
+# フロントエンドをビルドしてバンドル（UMD）
+COPY webpack.frontend.config.js ./
+RUN webpack --config webpack.frontend.config.js
 # 証明書を追加
 RUN apk add --no-cache ca-certificates
 # 静的バイナリを生成
@@ -28,6 +31,8 @@ WORKDIR /app
 COPY --from=builder /app/app.bin /app/app.bin
 COPY --from=builder /app/conf/authorization-config.json /conf/authorization-config.json
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+# dist配下のバンドルをコピー
+COPY --from=builder /app/dist/ ./dist/
 # フロントエンドのファイルをコピー
 COPY --from=builder /app/src/frontend/ ./src/frontend/
 # CSSファイルをコピー

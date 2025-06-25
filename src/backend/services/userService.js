@@ -4,9 +4,61 @@
 const users = new Map(); // メモリ内ユーザーストレージ
 const allowedEmails = new Set(); // 許可されたEmailアドレス
 
+// --- Functional Domain Modeling 型定義 ---
+/** @typedef {string & { readonly brand: 'UserId' }} UserId */
+/** @typedef {string & { readonly brand: 'Email' }} Email */
 /**
- * 許可されたEmailアドレスを設定（初期化）
+ * ユーザー型
+ * @typedef {Object} User
+ * @property {UserId} id
+ * @property {string} username
+ * @property {Email} email
+ * @property {string} registeredAt
+ * @property {string|null} lastLoginAt
  */
+/**
+ * 成功/失敗を表すResult型
+ * @template T
+ * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
+ */
+
+// --- スマートコンストラクタ: Email検証 ---
+function createEmail(email) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) {
+    return { ok: false, error: new Error('有効なメールアドレス形式で入力してください') };
+  }
+  return { ok: true, value: email.toLowerCase() };
+}
+
+// --- スマートコンストラクタ: UserId生成 ---
+function createUserId(username) {
+  return `${username}_${Date.now()}`;
+}
+
+// --- 純粋関数: ユーザー生成 ---
+function createUser(username, email) {
+  const emailResult = createEmail(email);
+  if (!username || !emailResult.ok) {
+    return { ok: false, error: new Error('ユーザー名と有効なメールアドレスは必須です') };
+  }
+  /** @type {User} */
+  const user = {
+    id: createUserId(username),
+    username,
+    email: emailResult.value,
+    registeredAt: new Date().toISOString(),
+    lastLoginAt: null
+  };
+  return { ok: true, value: user };
+}
+
+// --- 認可判定の純粋関数化 ---
+function isEmailAuthorizedPure(email) {
+  return allowedEmails.has(email.toLowerCase());
+}
+
+// --- 許可されたEmailアドレスを設定（初期化）
 export function initializeAllowedEmails() {
     // 環境変数から許可メールアドレスを読み込み
     const allowedEmailsEnv = process.env.ALLOWED_EMAILS || '';
@@ -28,35 +80,16 @@ export function initializeAllowedEmails() {
  * @returns {Object} - 登録結果
  */
 export function registerUser(username, email) {
-    if (!username || !email) {
-        throw new Error('ユーザー名とメールアドレスは必須です');
-    }
-    
-    // Email形式チェック
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        throw new Error('有効なメールアドレス形式で入力してください');
-    }
-    
-    const normalizedEmail = email.toLowerCase();
-    const userId = `${username}_${Date.now()}`;
-    
-    const user = {
-        id: userId,
-        username,
-        email: normalizedEmail,
-        registeredAt: new Date().toISOString(),
-        lastLoginAt: null
-    };
-    
-    users.set(userId, user);
-    console.log('[UserService] ユーザー登録:', user);
-    
-    return {
-        success: true,
-        user,
-        isAuthorized: isEmailAuthorized(normalizedEmail)
-    };
+  const userResult = createUser(username, email);
+  if (!userResult.ok) throw userResult.error;
+  const user = userResult.value;
+  users.set(user.id, user);
+  console.log('[UserService] ユーザー登録:', user);
+  return {
+    success: true,
+    user,
+    isAuthorized: isEmailAuthorizedPure(user.email)
+  };
 }
 
 /**
@@ -66,34 +99,28 @@ export function registerUser(username, email) {
  * @returns {Object} - ログイン結果
  */
 export function loginUser(username, email) {
-    const normalizedEmail = email.toLowerCase();
-    
-    // 既存ユーザーを検索（email or usernameで）
-    let existingUser = null;
-    for (const user of users.values()) {
-        if (user.email === normalizedEmail || user.username === username) {
-            existingUser = user;
-            break;
-        }
+  const emailResult = createEmail(email);
+  if (!emailResult.ok) throw emailResult.error;
+  const normalizedEmail = emailResult.value;
+  let existingUser = null;
+  for (const user of users.values()) {
+    if (user.email === normalizedEmail || user.username === username) {
+      existingUser = user;
+      break;
     }
-    
-    // 既存ユーザーがいない場合は新規登録
-    if (!existingUser) {
-        return registerUser(username, email);
-    }
-    
-    // 既存ユーザーの場合はログイン時刻を更新
-    existingUser.lastLoginAt = new Date().toISOString();
-    existingUser.email = normalizedEmail; // Email更新（大文字小文字の統一など）
-    existingUser.username = username; // ユーザー名更新
-    
-    console.log('[UserService] ユーザーログイン:', existingUser);
-    
-    return {
-        success: true,
-        user: existingUser,
-        isAuthorized: isEmailAuthorized(normalizedEmail)
-    };
+  }
+  if (!existingUser) {
+    return registerUser(username, normalizedEmail);
+  }
+  existingUser.lastLoginAt = new Date().toISOString();
+  existingUser.email = normalizedEmail;
+  existingUser.username = username;
+  console.log('[UserService] ユーザーログイン:', existingUser);
+  return {
+    success: true,
+    user: existingUser,
+    isAuthorized: isEmailAuthorizedPure(normalizedEmail)
+  };
 }
 
 /**
