@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/backend/index.js",
-    "build": "webpack",
+    "build:frontend": "webpack --config webpack.frontend.config.js",
     "build:backend": "webpack --config webpack.backend.config.js",
     "test": "jest",
     "test:e2e": "playwright test"

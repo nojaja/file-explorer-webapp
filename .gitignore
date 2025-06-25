@@ -138,7 +138,7 @@ dist
 /copilot_docs
 /data/gitlab
 /playwright-report
-/test-results
 /docs
+/doc
 /test-results
-/test-results
+/build
