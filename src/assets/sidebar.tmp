@@ -1,0 +1,7 @@
+<aside id="sidebar">
+  <div id="sidebar-auth" class="sidebar-auth">
+    <span id="login-status-span"></span>
+  </div>
+  <div id="root-path-list-container" style="display: none;"></div>
+  <!-- ここに他のサイドバー要素を追加可能 -->
+</aside>

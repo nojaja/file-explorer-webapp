@@ -1,8 +1,9 @@
 import path from 'path';
+import CopyPlugin from 'copy-webpack-plugin';
 
 export default {
   mode: 'production',
-  entry: './src/frontend/main.js',
+  entry: './src/frontend/js/index.js',
   output: {
     path: path.resolve('./dist'),
     filename: 'frontend.bundle.js',
@@ -23,6 +24,13 @@ export default {
       }
     ]
   },
+  plugins: [
+    new CopyPlugin({
+      patterns: [
+        { from: 'src/assets/*.tmp', to: 'assets/[name][ext]' }
+      ]
+    })
+  ],
   resolve: {
     extensions: ['.js']
   },

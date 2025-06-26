@@ -1,0 +1,431 @@
+/* Frontend specific styles for file explorer */
+
+/* --- サイドバーのデザイン強化 --- */
+#sidebar {
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  flex-direction: column;
+  align-items: flex-start;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ROOT_PATHリストコンテナ */
+#root-path-list-container {
+  width: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* サイドバーのROOT_PATHツリー */
+.root-tree {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.root-tree-item {
+  display: flex;
+  align-items: center;
+  padding: 0.7em 1em;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.1em;
+  color: #333;
+  margin-bottom: 0.3em;
+  transition: background 0.2s, color 0.2s;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  gap: 0.5em;
+  overflow: hidden;
+}
+.root-tree-item.selected {
+  background: #1976d2;
+  color: #fff;
+  font-weight: bold;
+}
+.root-tree-item.selected .root-tree-icon {
+  color: #fff;
+}
+.root-tree-icon {
+  margin-right: 0.5em;
+  color: #1976d2;
+  font-size: 1.3em;
+}
+.root-tree-star {
+  margin-left: auto;
+  color: #ffc107;
+  font-size: 1.2em;
+}
+.root-tree-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ディスク容量表示のスタイル */
+.root-tree-disk-space {
+  font-size: 0.75em;
+  color: #666;
+  margin-left: 1.8em;
+  margin-top: 0.2em;
+  font-weight: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.root-tree-item.selected .root-tree-disk-space {
+  color: #ccc;
+}
+
+/* サイドバー上部のログイン状態・ログアウトボタン */
+#sidebar .sidebar-auth {
+  width: 100%;
+  margin-bottom: 2em;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7em;
+}
+#sidebar .sidebar-auth #login-status {
+  font-size: 1.1em;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+#sidebar .sidebar-auth #logout-btn {
+  width: 120px;
+  font-size: 1.1em;
+  padding: 0.5em 0;
+  margin: 0;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(211,47,47,0.08);
+  border: none;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+/* Table styles */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+th, td {
+  padding: 0.7rem;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+th {
+  background: #e3f2fd;
+  font-weight: 600;
+}
+
+tr:hover {
+  background: #f1f8ff;
+}
+
+/* Icon button styles */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  cursor: pointer;
+}
+
+.icon-btn:hover {
+  color: #1565c0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Login button specific styles */
+.login-btn {
+  margin: 1rem 0;
+  padding: 0.5rem 1.5rem;
+  font-size: 1rem;
+  border: none;
+  border-radius: 4px;
+  background: #1976d2;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.login-btn.github {
+  background: #333;
+}
+
+.login-btn.gitlab {
+  background: #fc6d26;
+}
+
+.login-btn.hydra {
+  background: #009688;
+}
+
+.login-btn:hover {
+  filter: brightness(0.95);
+}
+
+/* Breadcrumb styles */
+.breadcrumb-item {
+  color: #1976d2;
+  cursor: pointer;
+  text-decoration: underline;
+  margin-right: 0.2em;
+}
+
+.breadcrumb-item:last-child {
+  color: #333;
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Refresh button styles */
+.refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  background: #1976d2;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 0.5em 1.2em;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+
+.refresh-btn:hover {
+  background: #1565c0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.refresh-btn .material-icons {
+  font-size: 1.2em;
+  vertical-align: middle;
+}
+
+/* 2カラムレイアウト */
+.container.layout {
+  display: flex;
+  flex-direction: row;
+  gap: 2rem;
+  max-width: 1800px;
+}
+#main-content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem 0.7rem 1.5rem 0.7rem;
+  margin-left: 1.5rem;
+}
+
+/* ROOT_PATHツリー */
+/* .root-tree { */
+/*   list-style: none; */
+/*   padding: 0; */
+/*   margin: 0; */
+/* } */
+/* .root-tree-item { */
+/*   display: flex; */
+/*   align-items: center; */
+/*   padding: 0.5em 0.7em; */
+/*   border-radius: 4px; */
+/*   cursor: pointer; */
+/*   font-size: 1.05em; */
+/*   color: #333; */
+/*   transition: background 0.2s, color 0.2s; */
+/*   margin-bottom: 0.2em; */
+/* } */
+/* .root-tree-item.selected { */
+/*   background: #e3f2fd; */
+/*   color: #1976d2; */
+/*   font-weight: bold; */
+/* } */
+/* .root-tree-icon { */
+/*   margin-right: 0.5em; */
+/*   color: #1976d2; */
+/* } */
+/* .root-tree-star { */
+/*   margin-left: auto; */
+/*   color: #ffc107; */
+/*   font-size: 1.1em; */
+/* } */
+/* .root-tree-name { */
+/*   flex: 1; */
+/*   overflow: hidden; */
+/*   text-overflow: ellipsis; */
+/*   white-space: nowrap; */
+/* } */
+
+/* バッジ用スタイル */
+#login-status span[style*="background-color"] {
+  margin-left: 0.3em;
+  font-size: 0.8em;
+  border-radius: 10px;
+  padding: 2px 8px;
+  display: inline-block;
+}
+
+/* ファイルツールバー */
+.file-toolbar {
+  display: flex;
+  gap: 1.2rem;
+  margin-bottom: 1.5rem;
+  align-items: center;
+}
+.file-toolbar .icon-btn, .file-toolbar .refresh-btn, .file-toolbar .upload-btn {
+  font-size: 1.1em;
+  padding: 0.7em 1.5em;
+  border-radius: 6px;
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(25,118,210,0.08);
+}
+.file-toolbar .icon-btn {
+  background: #fff;
+  border: 1.5px solid #1976d2;
+  color: #1976d2;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+}
+.file-toolbar .icon-btn:hover:not(:disabled) {
+  background: #1976d2;
+  color: #fff;
+  border-color: #1976d2;
+}
+.file-toolbar .icon-btn.disabled,
+.file-toolbar .icon-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+.file-toolbar .refresh-btn {
+  background: #1976d2;
+  border: 1.5px solid #1976d2;
+  color: #fff;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.file-toolbar .refresh-btn:hover {
+  background: #1565c0;
+}
+.file-toolbar .upload-btn {
+  background: #1976d2;
+  border: 1.5px solid #1976d2;
+  color: #fff;
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.file-toolbar .upload-btn:hover {
+  background: #1565c0;
+}
+/* ログイン状態バッジ */
+#login-status {
+  margin-bottom: 0.5em;
+  font-size: 1.05em;
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+}
+#login-status img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  margin-right: 0.5em;
+}
+#login-status .badge {
+  display: inline-block;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 0.8em;
+  color: #fff;
+  margin-left: 0.3em;
+}
+#login-status .badge.gitlab { background: #fc6d26; }
+#login-status .badge.hydra { background: #009688; }
+#login-status .badge.github { background: #333; }
+#login-status .badge.none { background: #4caf50; }
+#login-status .badge.unknown { background: #757575; }
+
+/* 操作列ボタン */
+.actions .icon-btn {
+  background: none;
+  border: none;
+  color: #1976d2;
+  font-size: 1.2rem;
+  padding: 0.2em 0.5em;
+  border-radius: 4px;
+  transition: background 0.2s, color 0.2s;
+}
+.actions .icon-btn:hover {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.actions .icon-btn:disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ログアウトボタン（赤） */
+#logout-btn {
+  background: #d32f2f !important;
+  color: #fff !important;
+  margin-left: 1em;
+  font-weight: bold;
+}
+#logout-btn:hover {
+  background: #b71c1c !important;
+}
+
+
+.dragover-upload {
+  position: relative;
+  /* upload-area風のカバー */
+  background: rgba(248,250,252,0.95) !important;
+  border: 2px dashed #1976d2 !important;
+  border-radius: 8px;
+  transition: background 0.2s, border-color 0.2s;
+}
+.dragover-upload::after {
+  content: 'ここにファイルをドロップしてアップロード';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #1976d2;
+  font-size: 1.3em;
+  font-weight: bold;
+  background: rgba(255,255,255,0.85);
+  padding: 1em 2em;
+  border-radius: 8px;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(25,118,210,0.08);
+}
+@media (max-width: 900px) {
+  .container.layout {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  #sidebar {
+    width: 100%;
+    min-height: unset;
+    margin-bottom: 1rem;
+  }
+}

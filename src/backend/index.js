@@ -114,6 +114,8 @@ app.use(hydraUrlReplaceMiddleware);
 
 // dist配下のバンドルを静的配信（catch-allより前に追加）
 app.use('/dist', express.static(path.join(process.cwd(), 'dist')));
+// assetsパスをdist/assetsに配信（SPA対応）
+app.use('/assets', express.static(path.join(process.cwd(), 'dist/assets')));
 // 既存のfrontend, styles配信
 app.use(express.static(path.join(process.cwd(), "src/frontend")));
 // CSS ファイルの配信（正しいMIMEタイプを設定）
