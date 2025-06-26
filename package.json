@@ -15,6 +15,7 @@
   "license": "MIT",
   "dependencies": {
     "archiver": "^7.0.0",
+    "check-disk-space": "^3.4.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",

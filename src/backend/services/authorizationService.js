@@ -1,6 +1,7 @@
 // 認可管理サービス - emailベースの権限制御（複数ROOT_PATH対応）
 import fs from 'fs';
 import path from 'path';
+import { getDiskSpace } from '../utils/diskSpace.js';
 
 export let authorizationConfig = null;
 
@@ -127,23 +128,29 @@ export function getRootPathById(rootPathId) {
 /**
  * ユーザーがアクセス可能なROOT_PATH一覧を取得
  * @param {string} email - ユーザーのメールアドレス
- * @returns {Array} - アクセス可能なROOT_PATH一覧
+ * @returns {Promise<Array>} - アクセス可能なROOT_PATH一覧（各rootPathにdiskSpace情報を付与）
  */
-export function getUserAccessibleRootPaths(email) {
+export async function getUserAccessibleRootPaths(email) {
     const rootPaths = getRootPaths();
     const userRule = getUserRule(email);
-    
     if (!userRule || !userRule.rootPathPermissions) {
-        return []; // アクセス権限がない場合は空配列
+        return [];
     }
-    
-    return rootPaths.filter(rp => {
-        const permission = userRule.rootPathPermissions[rp.id];
-        return permission && permission !== 'denied';
-    }).map(rp => ({
-        ...rp,
-        permission: userRule.rootPathPermissions[rp.id]
-    }));
+    // 各rootPathのディスク容量情報を取得
+    const results = await Promise.all(
+        rootPaths.filter(rp => {
+            const permission = userRule.rootPathPermissions[rp.id];
+            return permission && permission !== 'denied';
+        }).map(async rp => {
+            const diskSpace = await getDiskSpace(rp.path);
+            return {
+                ...rp,
+                permission: userRule.rootPathPermissions[rp.id],
+                diskSpace
+            };
+        })
+    );
+    return results;
 }
 
 /**

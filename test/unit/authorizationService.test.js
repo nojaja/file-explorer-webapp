@@ -25,11 +25,11 @@ describe('authorizationService', () => {
     }
   });
 
-  it('getUserAccessibleRootPathsでユーザーのアクセス可能ROOT_PATH取得', () => {
+  it('getUserAccessibleRootPathsでユーザーのアクセス可能ROOT_PATH取得', async () => {
     const rootPaths = authz.getRootPaths();
     if (rootPaths.length > 0) {
       const email = Object.keys((rootPaths[0].permissions || {}))[0] || 'test@example.com';
-      const result = authz.getUserAccessibleRootPaths(email);
+      const result = await authz.getUserAccessibleRootPaths(email);
       expect(Array.isArray(result)).toBe(true);
     }
   });

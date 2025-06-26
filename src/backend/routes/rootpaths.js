@@ -12,7 +12,7 @@ const router = express.Router();
 /**
  * GET /api/rootpaths - ユーザーがアクセス可能なROOT_PATH一覧を取得
  */
-router.get("/", authMiddleware, (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
     console.log('[rootpaths] req.headers.cookie:', req.headers.cookie);
     try {
         const userEmail = req.user?.email || req.session?.user?.email;
@@ -24,7 +24,13 @@ router.get("/", authMiddleware, (req, res) => {
             });
         }
         
-        const accessibleRootPaths = getUserAccessibleRootPaths(userEmail);
+        const accessibleRootPaths = await getUserAccessibleRootPaths(userEmail);
+        // diskSpaceにerrorが含まれている場合は警告ログ
+        accessibleRootPaths.forEach(rp => {
+            if (rp.diskSpace && rp.diskSpace.error) {
+                console.warn(`[rootpaths] ディスク容量取得エラー: id=${rp.id}, path=${rp.path}, error=${rp.diskSpace.error}`);
+            }
+        });
         const defaultRootPath = getDefaultRootPath();
         
         res.json({
@@ -34,17 +40,23 @@ router.get("/", authMiddleware, (req, res) => {
         });
     } catch (error) {
         console.error('[RootPath API] ROOT_PATH一覧取得エラー:', error);
-        res.status(500).json({ 
-            error: 'ROOT_PATH一覧の取得に失敗しました',
-            code: 'ROOTPATH_LIST_ERROR'
-        });
+        // 既にレスポンスが送信されていないか確認
+        if (!res.headersSent) {
+            res.status(500).json({ 
+                error: 'ROOT_PATH一覧の取得に失敗しました',
+                code: 'ROOTPATH_LIST_ERROR',
+                details: error?.message || error
+            });
+        } else {
+            console.error('[RootPath API] レスポンス送信済みのためエラー応答不可');
+        }
     }
 });
 
 /**
  * GET /api/rootpaths/:id - 特定ROOT_PATHの詳細情報を取得
  */
-router.get("/:id", authMiddleware, (req, res) => {
+router.get("/:id", authMiddleware, async (req, res) => {
     try {
         const userEmail = req.user?.email || req.session?.user?.email;
         const rootPathId = req.params.id;
@@ -56,7 +68,7 @@ router.get("/:id", authMiddleware, (req, res) => {
             });
         }
         
-        const accessibleRootPaths = getUserAccessibleRootPaths(userEmail);
+        const accessibleRootPaths = await getUserAccessibleRootPaths(userEmail);
         const targetRootPath = accessibleRootPaths.find(rp => rp.id === rootPathId);
         
         if (!targetRootPath) {
@@ -82,7 +94,7 @@ router.get("/:id", authMiddleware, (req, res) => {
 /**
  * POST /api/rootpaths/select - ROOT_PATHを選択（セッションに保存）
  */
-router.post("/select", authMiddleware, (req, res) => {
+router.post("/select", authMiddleware, async (req, res) => {
     try {
         const userEmail = req.user?.email || req.session?.user?.email;
         const { rootPathId } = req.body;
@@ -101,7 +113,7 @@ router.post("/select", authMiddleware, (req, res) => {
             });
         }
         
-        const accessibleRootPaths = getUserAccessibleRootPaths(userEmail);
+        const accessibleRootPaths = await getUserAccessibleRootPaths(userEmail);
         const targetRootPath = accessibleRootPaths.find(rp => rp.id === rootPathId);
         
         if (!targetRootPath) {

@@ -109,7 +109,7 @@ async function fetchRootPaths() {
 /**
  * ROOT_PATHを選択
  */
-async function selectRootPath(rootPathId) {
+window.selectRootPath = async function(rootPathId) {
   try {
     const res = await fetch('/api/rootpaths/select', {
       method: 'POST',
@@ -142,7 +142,7 @@ async function selectRootPath(rootPathId) {
     errorDiv.textContent = e.message;
     errorDiv.style.display = '';
   }
-}
+};
 
 async function fetchFiles(path = '') {
   try {
@@ -271,12 +271,13 @@ function renderRootPathList() {
     return;
   }
   
-  // containerの取得漏れを修正
+  // containerの取得
   const container = document.getElementById('root-path-list-container');
   if (!container) {
-    renderRootPathTree();
+    console.warn('root-path-list-container要素が見つかりません');
     return;
   }
+  
   container.style.display = 'block';
   container.innerHTML = `
     <div style="background: #f5f5f5; padding: 1rem; border-radius: 4px; border: 1px solid #ddd;">
@@ -284,75 +285,35 @@ function renderRootPathList() {
         <span class="material-icons" style="vertical-align: middle; margin-right: 0.3rem; color: #009688;">folder_special</span>
         ROOT_PATH選択
       </h3>
-      <div id="root-path-list" style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
-        ${rootPaths.map(rp => `
-          <button 
-            class="root-path-btn ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? 'selected' : ''}"
-            onclick="selectRootPath('${rp.id}')"
-            title="${rp.description || rp.name}"
-            style="
-              padding: 0.4rem 0.8rem; 
-              border: 1px solid ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '#009688' : '#ddd'}; 
-              border-radius: 4px; 
-              background: ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '#e0f2f1' : '#fff'}; 
-              color: ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '#009688' : '#333'}; 
-              cursor: pointer; 
-              font-size: 0.9rem;
-              font-weight: ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? '600' : '400'};
-              transition: all 0.2s;
-            "
-          >
-            <span class="material-icons" style="vertical-align: middle; margin-right: 0.3rem; font-size: 1rem;">
-              ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? 'radio_button_checked' : 'radio_button_unchecked'}
-            </span>
-            ${rp.name}
-            <span style="font-size: 0.8rem; color: #666; margin-left: 0.3rem;">(${rp.permission || 'unknown'})</span>
-          </button>
-        `).join('')}
+      <div id="root-path-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+        ${rootPaths.map(rp => {
+          // ディスク容量表示用
+          let diskStr = '';
+          if (rp.diskSpace) {
+            const { total, free, used } = rp.diskSpace;
+            // 単位変換（バイト→GB）
+            const toGB = v => v != null ? (v / (1024 ** 3)).toFixed(1) : '?';
+            diskStr = `空き: ${toGB(free)}GB / 総容量: ${toGB(total)}GB`;
+          }
+          return `
+          <div class="root-tree-item ${uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? 'selected' : ''}" 
+               onclick="selectRootPath('${rp.id}')"
+               title="${rp.description || rp.name}"
+               style="cursor: pointer;">
+            <div style="display: flex; flex-direction: column; width: 100%; min-width: 0;">
+              <div style="display: flex; align-items: center; min-width: 0;">
+                <span class="root-tree-icon material-icons">folder_special</span>
+                <span class="root-tree-name">${rp.name || rp.path || String(rp)}</span>
+                ${rp.isDefault ? '<span class="root-tree-star material-icons">star</span>' : ''}
+              </div>
+              ${diskStr ? `<div class="root-tree-disk-space">${diskStr}</div>` : ''}
+            </div>
+          </div>
+          `;
+        }).join('')}
       </div>
     </div>
   `;
-  
-  renderRootPathTree();
-}
-
-/**
- * ROOT_PATHツリーをサイドバーに描画
- */
-function renderRootPathTree() {
-  // ログイン状態取得
-  const isLoggedIn = window.isAuthenticated;
-  if (!isLoggedIn) return;
-  const container = document.getElementById('root-tree-container');
-  if (!container) return;
-  container.innerHTML = '';
-  // rootPathsが空でもcontainer自体は常に表示
-  container.style.display = 'block';
-  if (!rootPaths || rootPaths.length === 0) {
-    // 空の場合はメッセージ表示
-    container.innerHTML = '<div style="color:#888;padding:0.5em 0.2em;">ルートパスがありません</div>';
-    return;
-  }
-  // ルートパス一覧をリスト表示
-  const ul = document.createElement('ul');
-  ul.style.listStyle = 'none';
-  ul.style.padding = '0';
-  rootPaths.forEach(rp => {
-    const li = document.createElement('li');
-    li.className = 'root-tree-item' + (uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id ? ' selected' : '');
-
-    li.textContent = rp.name || rp.path || String(rp);
-    li.style.cursor = 'pointer';
-    li.style.padding = '0.3em 0.5em';
-    if (uiState.selectedRootPath && uiState.selectedRootPath.id === rp.id) {
-      li.style.background = '#e0f2f1';
-      li.style.color = '#009688';
-      li.style.fontWeight = 'bold';
-    }
-    li.onclick = () => selectRootPath(rp.id || rp.path || rp);
-    ul.appendChild(li);
-  });
-  container.appendChild(ul);
 }
 
 // ディレクトリ遷移
@@ -558,7 +519,7 @@ window.onload = async function() {
   }
   // 認証状態の更新
   await updateLoginStatus();
-  renderRootPathTree();
+  renderRootPathList();
   // 初期表示時に権限取得
   if (uiState.selectedRootPath && uiState.selectedRootPath.id) {
     uiState.userPermissions = await fetchUserPermissionsForRootPath(uiState.selectedRootPath.id);
