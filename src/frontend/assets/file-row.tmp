@@ -1,0 +1,30 @@
+{{#each files}}
+<tr>
+  <td>
+    {{#if isDir}}
+      <span class="material-icons" style="vertical-align:middle;color:#ffa000;">folder</span>
+      <span style='cursor:pointer;color:#1976d2;text-decoration:underline;' onclick='changeDir("{{path}}")'>{{name}}</span>
+    {{else}}
+      <span class="material-icons" style="vertical-align:middle;color:#1976d2;">insert_drive_file</span>
+      {{name}}
+    {{/if}}
+  </td>
+  <td>{{#if isDir}}フォルダ{{else}}ファイル{{/if}}</td>
+  <td>{{size}}</td>
+  <td>{{mtime}}</td>
+  <td class="actions">
+    {{#if isDir}}
+      <a class="icon-btn" title="zipダウンロード" href="{{downloadFolderUrl}}" download>
+        <span class="material-icons">archive</span>
+      </a>
+    {{else}}
+      <a class="download-link icon-btn" title="ダウンロード" href="{{downloadFileUrl}}" download>
+        <span class="material-icons">download</span>
+      </a>
+    {{/if}}
+    {{#if deleteButton}}
+      {{{deleteButton}}}
+    {{/if}}
+  </td>
+</tr>
+{{/each}}

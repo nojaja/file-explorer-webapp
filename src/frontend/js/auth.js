@@ -1,3 +1,5 @@
+import { renderTemplate } from './handlebars-utils.js';
+
 /**
  * 認証管理クラス
  */
@@ -102,63 +104,82 @@ export class AuthManager {
     const userName = (data.user && (data.user.displayName || data.user.username)) 
       ? (data.user.displayName || data.user.username) 
       : '';
-      
-    let loginStatusHtml = `
-      ログイン中: <span style="font-weight:bold;">${userName}</span>
-      <span class="badge ${providerName}">${providerLabel}</span>
-    `;
     
-    const statusDiv = document.createElement('div');
-    statusDiv.id = 'login-status-span';
-    statusDiv.innerHTML = loginStatusHtml;
-    sidebarAuth.appendChild(statusDiv);
-    
-    // ログアウトボタン
-    const logoutBtn = document.createElement('button');
-    logoutBtn.id = 'logout-btn';
-    logoutBtn.textContent = 'ログアウト';
-    logoutBtn.className = 'sidebar-btn logout';
-    logoutBtn.onclick = async () => {
-      await fetch('/auth/logout');
-      location.reload();
+    const templateData = {
+      authenticated: true,
+      userName,
+      providerName,
+      providerLabel
     };
-    sidebarAuth.appendChild(logoutBtn);
+    
+    try {
+      const html = await renderTemplate('auth-status', templateData);
+      sidebarAuth.innerHTML = html;
+      
+      // ログアウトボタンのイベントリスナーを追加
+      const logoutBtn = document.getElementById('logout-btn');
+      if (logoutBtn) {
+        logoutBtn.onclick = async () => {
+          await fetch('/auth/logout');
+          location.reload();
+        };
+      }
+    } catch (error) {
+      console.error('認証状態テンプレートレンダリングエラー:', error);
+      sidebarAuth.innerHTML = '<div class="error">認証状態の表示でエラーが発生しました</div>';
+    }
   }
 
   /**
    * 未認証状態の描画
    */
   async renderUnauthenticatedState(sidebarAuth, loginStatusSpan) {
-    if (loginStatusSpan) {
-      loginStatusSpan.innerHTML = '<span style="color:#d32f2f;font-weight:bold;">未ログインです。ログインしてください。</span>';
-    }
-    
     // ログインボタンを認証方式ごとに動的生成
+    const loginButtons = [];
+    
     if (this.authConfig?.gitlab) {
-      const gitlabBtn = document.createElement('button');
-      gitlabBtn.id = 'login-gitlab-btn';
-      gitlabBtn.className = 'login-btn';
-      gitlabBtn.textContent = 'GitLabでログイン';
-      gitlabBtn.onclick = () => { window.location.href = '/auth/gitlab'; };
-      sidebarAuth.appendChild(gitlabBtn);
+      loginButtons.push({
+        id: 'login-gitlab-btn',
+        text: 'GitLabでログイン',
+        href: '/auth/gitlab'
+      });
     }
     
     if (this.authConfig?.hydra) {
-      const hydraBtn = document.createElement('button');
-      hydraBtn.id = 'hydra-login-btn';
-      hydraBtn.className = 'login-btn hydra';
-      hydraBtn.textContent = 'Hydraでログイン';
-      hydraBtn.onclick = () => { window.location.href = '/auth/hydra'; };
-      sidebarAuth.appendChild(hydraBtn);
+      loginButtons.push({
+        id: 'hydra-login-btn',
+        text: 'Hydraでログイン',
+        href: '/auth/hydra'
+      });
     }
     
     if (this.authConfig?.github) {
-      const githubBtn = document.createElement('button');
-      githubBtn.id = 'login-github-btn';
-      githubBtn.className = 'login-btn';
-      githubBtn.textContent = 'GitHubでログイン';
-      githubBtn.onclick = () => { window.location.href = '/auth/github'; };
-      sidebarAuth.appendChild(githubBtn);
+      loginButtons.push({
+        id: 'login-github-btn',
+        text: 'GitHubでログイン',
+        href: '/auth/github'
+      });
+    }
+    
+    const templateData = {
+      authenticated: false,
+      loginButtons
+    };
+    
+    try {
+      const html = await renderTemplate('auth-status', templateData);
+      sidebarAuth.innerHTML = html;
+      
+      // ログインボタンのイベントリスナーを追加
+      loginButtons.forEach(button => {
+        const btn = document.getElementById(button.id);
+        if (btn) {
+          btn.onclick = () => { window.location.href = button.href; };
+        }
+      });
+    } catch (error) {
+      console.error('未認証状態テンプレートレンダリングエラー:', error);
+      sidebarAuth.innerHTML = '<div class="error">認証状態の表示でエラーが発生しました</div>';
     }
   }
 

@@ -1,3 +1,5 @@
+import { renderTemplate } from './handlebars-utils.js';
+
 // --- Functional Domain Modeling 型定義 ---
 /** @typedef {string & { readonly brand: 'RootPathId' }} RootPathId */
 /** @typedef {string & { readonly brand: 'RelPath' }} RelPath */
@@ -33,6 +35,7 @@
  * @property {RootPath|null} selectedRootPath
  * @property {string} currentPath
  * @property {Permission|null} userPermissions
+ * @property {RootPath[]} rootPaths
  */
 /**
  * 成功/失敗を表すResult型
@@ -57,7 +60,8 @@ export class FileManager {
     this.uiState = {
       selectedRootPath: null,
       currentPath: '',
-      userPermissions: null
+      userPermissions: null,
+      rootPaths: [] // ROOT_PATH一覧を追加
     };
     
     this.rootPaths = []; // 利用可能なROOT_PATH一覧
@@ -103,6 +107,7 @@ export class FileManager {
       
       const data = await res.json();
       this.rootPaths = data.rootPaths || [];
+      this.uiState.rootPaths = data.rootPaths || []; // uiStateにも保存
       window.rootPaths = this.rootPaths;
       
       // デフォルトROOT_PATHを設定
@@ -142,6 +147,17 @@ export class FileManager {
       this.uiState.selectedRootPath = data.selectedRootPath;
       window.uiState.selectedRootPath = data.selectedRootPath;
       
+      // ROOT_PATHデータの状態保持
+      if (!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) {
+        if (this.rootPaths && this.rootPaths.length > 0) {
+          this.uiState.rootPaths = this.rootPaths;
+        } else {
+          await this.fetchRootPaths();
+        }
+      }
+      
+      console.log('[FileManager] ROOT_PATH選択完了:', this.uiState.selectedRootPath);
+      
       // 権限を取得し直す
       this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
       window.uiState.userPermissions = this.uiState.userPermissions;
@@ -150,7 +166,11 @@ export class FileManager {
       console.log('[FileManager] ROOT_PATH選択完了:', this.uiState.selectedRootPath);
       
       // ROOT_PATH一覧の表示を更新
-      await this.renderRootPathList();
+      try {
+        await this.renderRootPathList();
+      } catch (error) {
+        console.error('[FileManager] renderRootPathListエラー:', error);
+      }
       
       // ファイル一覧を再取得（ルートディレクトリから）
       this.uiState.currentPath = '';
@@ -205,8 +225,8 @@ export class FileManager {
         this.updateUploadAreaVisibility();
       }
       
-      this.renderFiles(data.files || []);
-      this.renderBreadcrumb(path ? path.split('/').filter(Boolean) : []); // ルート
+      await this.renderFiles(data.files || []);
+      await this.renderBreadcrumb(path ? path.split('/').filter(Boolean) : []); // ルート
       this.renderParentButton();
       
       const fileTable = document.getElementById('file-table');
@@ -230,13 +250,12 @@ export class FileManager {
    * ファイル一覧をレンダリング
    * @param {Array} files 
    */
-  renderFiles(files) {
+  async renderFiles(files) {
     const fileList = document.getElementById('file-list');
     if (!fileList) return;
     
-    fileList.innerHTML = '';
-    files.forEach(f => {
-      const tr = document.createElement('tr');
+    // テンプレート用のデータを準備
+    const templateData = files.map(f => {
       const isDir = f.type === 'dir';
       
       // 削除ボタンの表示制御
@@ -250,30 +269,26 @@ export class FileManager {
       const downloadFileUrl = `/api/download/file?path=${encodeURIComponent(f.path)}${rootPathParam}`;
       const downloadFolderUrl = `/api/download/folder?path=${encodeURIComponent(f.path)}${rootPathParam}`;
       
-      tr.innerHTML = `
-        <td>${
-          isDir ? '<span class="material-icons" style="vertical-align:middle;color:#ffa000;">folder</span> '
-                : '<span class="material-icons" style="vertical-align:middle;color:#1976d2;">insert_drive_file</span> '
-        }
-          ${
-            isDir ? `<span style='cursor:pointer;color:#1976d2;text-decoration:underline;' onclick='changeDir("${f.path}")'>${f.name}</span>`
-                  : f.name
-          }
-        </td>
-        <td>${isDir ? 'フォルダ' : 'ファイル'}</td>
-        <td>${f.size ?? ''}</td>
-        <td>${f.mtime ?? ''}</td>
-        <td class="actions">
-          ${
-            isDir 
-            ? `<a class="icon-btn" title="zipダウンロード" href="${downloadFolderUrl}" download><span class="material-icons">archive</span></a>` 
-            : `<a class="download-link icon-btn" title="ダウンロード" href="${downloadFileUrl}" download><span class="material-icons">download</span></a>`
-          }
-          ${deleteButton}
-        </td>
-      `;
-      fileList.appendChild(tr);
+      return {
+        name: f.name,
+        path: f.path,
+        isDir,
+        size: f.size ?? '',
+        mtime: f.mtime ?? '',
+        downloadFileUrl,
+        downloadFolderUrl,
+        deleteButton
+      };
     });
+    
+    try {
+      const html = await renderTemplate('file-row', { files: templateData });
+      fileList.innerHTML = html;
+    } catch (error) {
+      console.error('ファイル一覧テンプレートレンダリングエラー:', error);
+      fileList.innerHTML = '<tr><td colspan="5">ファイル一覧の表示でエラーが発生しました</td></tr>';
+    }
+    
     this.updateFileToolbar();
   }
 
@@ -281,45 +296,60 @@ export class FileManager {
    * パンくずリストをレンダリング
    * @param {Array} pathArr 
    */
-  renderBreadcrumb(pathArr) {
+  async renderBreadcrumb(pathArr) {
     const bc = document.getElementById('breadcrumb');
     if (!bc) return;
-    bc.innerHTML = '';
     
-    // ROOT_PATH名を最初に表示
+    // パンくずリスト用のデータを準備
+    const breadcrumbs = [];
+    
+    // ROOT_PATH名を最初に追加
     if (this.uiState.selectedRootPath) {
-      const rootSpan = document.createElement('span');
-      rootSpan.textContent = this.uiState.selectedRootPath.name || 'root';
-      rootSpan.className = 'breadcrumb-item root-path';
-      rootSpan.style.fontWeight = 'bold';
-      rootSpan.style.color = '#009688';
-      rootSpan.onclick = () => this.changeDir('');
-      bc.appendChild(rootSpan);
-      
-      if (pathArr.length > 0) {
-        bc.appendChild(document.createTextNode(' / '));
-      }
+      breadcrumbs.push({
+        name: this.uiState.selectedRootPath.name || 'root',
+        path: '',
+        isRootPath: true
+      });
     }
     
-    let path = '';
+    // パス要素を追加
+    let currentPath = '';
     pathArr.forEach((p, i) => {
-      path += (i > 0 ? '/' : '') + p;
-      const jumppath = String(path);
-      const span = document.createElement('span');
-      span.textContent = p || 'root';
-      span.className = 'breadcrumb-item';
-      span.onclick = () => this.changeDir(jumppath);
-      bc.appendChild(span);
-      if (i < pathArr.length - 1) bc.appendChild(document.createTextNode(' / '));
+      currentPath += (i > 0 ? '/' : '') + p;
+      breadcrumbs.push({
+        name: p || 'root',
+        path: currentPath,
+        isRootPath: false
+      });
     });
+    
+    try {
+      const html = await renderTemplate('breadcrumb', { breadcrumbs });
+      bc.innerHTML = html;
+    } catch (error) {
+      console.error('パンくずリストテンプレートレンダリングエラー:', error);
+      bc.innerHTML = '<span class="breadcrumb-item">パンくずリストの表示でエラーが発生しました</span>';
+    }
   }
 
   /**
    * ROOT_PATH一覧をレンダリング
    */
   async renderRootPathList() {
-    if (!this.rootPaths || this.rootPaths.length === 0) {
-      // ROOT_PATHがない場合は非表示
+    // ROOT_PATHデータの復元・再取得処理
+    if ((!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) && this.rootPaths && this.rootPaths.length > 0) {
+      this.uiState.rootPaths = this.rootPaths;
+    }
+    
+    if ((!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) && (!this.rootPaths || this.rootPaths.length === 0)) {
+      try {
+        await this.fetchRootPaths();
+      } catch (error) {
+        console.error('[FileManager] ROOT_PATH再取得エラー:', error);
+      }
+    }
+    
+    if (!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) {
       return;
     }
     
@@ -330,42 +360,38 @@ export class FileManager {
       return;
     }
     
-    container.style.display = 'block';
-    container.innerHTML = `
-      <div style="background: #f5f5f5; padding: 1rem; border-radius: 4px; border: 1px solid #ddd;">
-        <h3 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1rem;">
-          <span class="material-icons" style="vertical-align: middle; margin-right: 0.3rem; color: #009688;">folder_special</span>
-          ROOT_PATH選択
-        </h3>
-        <div id="root-path-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
-          ${this.rootPaths.map(rp => {
-            // ディスク容量表示用
-            let diskStr = '';
-            if (rp.diskSpace) {
-              const { total, free, used } = rp.diskSpace;
-              // 単位変換（バイト→GB）
-              const toGB = v => v != null ? (v / (1024 ** 3)).toFixed(1) : '?';
-              diskStr = `空き: ${toGB(free)}GB / 総容量: ${toGB(total)}GB`;
-            }
-            return `
-            <div class="root-tree-item ${this.uiState.selectedRootPath && this.uiState.selectedRootPath.id === rp.id ? 'selected' : ''}" 
-                 onclick="selectRootPath('${rp.id}')"
-                 title="${rp.description || rp.name}"
-                 style="cursor: pointer;">
-              <div style="display: flex; flex-direction: column; width: 100%; min-width: 0;">
-                <div style="display: flex; align-items: center; min-width: 0;">
-                  <span class="root-tree-icon material-icons">folder_special</span>
-                  <span class="root-tree-name">${rp.name || rp.path || String(rp)}</span>
-                  ${rp.isDefault ? '<span class="root-tree-star material-icons">star</span>' : ''}
-                </div>
-                ${diskStr ? `<div class="root-tree-disk-space">${diskStr}</div>` : ''}
-              </div>
-            </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-    `;
+    // テンプレート用のデータを準備
+    const templateData = this.uiState.rootPaths.map(rp => {
+      // ディスク容量表示用
+      let diskInfo = '';
+      if (rp.diskSpace) {
+        const { total, free, used } = rp.diskSpace;
+        // 単位変換（バイト→GB）
+        const toGB = v => v != null ? (v / (1024 ** 3)).toFixed(1) : '?';
+        diskInfo = `空き: ${toGB(free)}GB / 総容量: ${toGB(total)}GB`;
+      }
+      
+      const isSelected = this.uiState.selectedRootPath && this.uiState.selectedRootPath.id === rp.id;
+      
+      return {
+        id: rp.id,
+        displayName: rp.name || rp.path || String(rp),
+        description: rp.description || rp.name,
+        isDefault: rp.isDefault,
+        selected: isSelected,
+        diskInfo
+      };
+    });
+    
+    try {
+      const html = await renderTemplate('root-path-list', { rootPaths: templateData });
+      container.innerHTML = html;
+      container.style.display = 'block';
+    } catch (error) {
+      console.error('ROOT_PATH一覧テンプレートレンダリングエラー:', error);
+      container.innerHTML = '<div class="error">ROOT_PATH一覧の表示でエラーが発生しました</div>';
+      container.style.display = 'block';
+    }
   }
 
   /**
@@ -404,8 +430,8 @@ export class FileManager {
         this.updateUploadAreaVisibility();
       }
       
-      this.renderFiles(data.files || []);
-      this.renderBreadcrumb(path.split('/').filter(Boolean));
+      await this.renderFiles(data.files || []);
+      await this.renderBreadcrumb(path.split('/').filter(Boolean));
       this.renderParentButton();
       
       const fileTable = document.getElementById('file-table');

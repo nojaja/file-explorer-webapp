@@ -1,4 +1,5 @@
 import { renderTemplate, renderPartialTemplate } from './view.js';
+import { renderTemplate as renderTemplateHandlebars } from './handlebars-utils.js';
 
 /**
  * SPAルーティング管理
@@ -153,7 +154,14 @@ class Router {
       await renderTemplate('main', context);
     } catch (renderError) {
       console.error('[Router] エラーレンダリング失敗:', renderError);
-      document.getElementById('app').innerHTML = `<div class="error">エラーが発生しました: ${error.message}</div>`;
+      // Handlebarsテンプレートでエラー表示
+      try {
+        const errorHtml = await renderTemplateHandlebars('error', { message: error.message });
+        document.getElementById('app').innerHTML = errorHtml;
+      } catch (errorTemplateError) {
+        console.error('[Router] エラーテンプレートレンダリング失敗:', errorTemplateError);
+        document.getElementById('app').innerHTML = `<div class="error">エラーが発生しました: ${error.message}</div>`;
+      }
     }
   }
 }

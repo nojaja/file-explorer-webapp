@@ -27,7 +27,7 @@ export default {
   plugins: [
     new CopyPlugin({
       patterns: [
-        { from: 'src/assets/*.tmp', to: 'assets/[name][ext]' }
+        { from: 'src/frontend/assets/*.tmp', to: 'assets/[name][ext]' }
       ]
     })
   ],

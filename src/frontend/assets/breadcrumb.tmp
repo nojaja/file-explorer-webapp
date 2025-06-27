@@ -1,0 +1,10 @@
+{{#each breadcrumbs}}
+<span class="breadcrumb-item {{#if @last}}current{{/if}} {{#if isRootPath}}root-path{{/if}}" 
+     {{#unless @last}}onclick="changeDir('{{path}}')" style="cursor:pointer;"{{/unless}}>
+  {{#if isRootPath}}
+    <span class="material-icons">folder_special</span>
+  {{/if}}
+  {{name}}
+</span>
+{{#unless @last}}<span class="breadcrumb-separator">›</span>{{/unless}}
+{{/each}}

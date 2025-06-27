@@ -1,0 +1,27 @@
+<div style="background: #f5f5f5; padding: 1rem; border-radius: 4px; border: 1px solid #ddd;">
+  <h3 style="margin: 0 0 0.5rem 0; color: #333; font-size: 1rem;">
+    <span class="material-icons" style="vertical-align: middle; margin-right: 0.3rem; color: #009688;">folder_special</span>
+    ROOT_PATH選択
+  </h3>
+  <div id="root-path-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+    {{#each rootPaths}}
+    <div class="root-tree-item {{#if selected}}selected{{/if}}" 
+         onclick="selectRootPath('{{id}}')"
+         title="{{description}}"
+         style="cursor: pointer;">
+      <div style="display: flex; flex-direction: column; width: 100%; min-width: 0;">
+        <div style="display: flex; align-items: center; min-width: 0;">
+          <span class="root-tree-icon material-icons">folder_special</span>
+          <span class="root-tree-name">{{displayName}}</span>
+          {{#if isDefault}}
+            <span class="root-tree-star material-icons">star</span>
+          {{/if}}
+        </div>
+        {{#if diskInfo}}
+          <div class="root-tree-disk-space">{{diskInfo}}</div>
+        {{/if}}
+      </div>
+    </div>
+    {{/each}}
+  </div>
+</div>

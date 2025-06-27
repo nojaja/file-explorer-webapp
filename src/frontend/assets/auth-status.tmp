@@ -1,0 +1,14 @@
+{{#if authenticated}}
+<div id="login-status-span">
+  ログイン中: <span style="font-weight:bold;">{{userName}}</span>
+  <span class="badge {{providerName}}">{{providerLabel}}</span>
+</div>
+<button id="logout-btn" class="sidebar-btn logout">ログアウト</button>
+{{else}}
+<div id="login-status-span">
+  <span style="color:#d32f2f;font-weight:bold;">未ログインです。ログインしてください。</span>
+</div>
+{{#each loginButtons}}
+<button id="{{id}}" class="login-btn">{{text}}</button>
+{{/each}}
+{{/if}}
