@@ -126,7 +126,8 @@ export class AuthManager {
       }
     } catch (error) {
       console.error('認証状態テンプレートレンダリングエラー:', error);
-      sidebarAuth.innerHTML = '<div class="error">認証状態の表示でエラーが発生しました</div>';
+      const html = await renderTemplate('error', { message: '認証状態の表示でエラーが発生しました' });
+      sidebarAuth.innerHTML = html;
     }
   }
 
@@ -179,7 +180,8 @@ export class AuthManager {
       });
     } catch (error) {
       console.error('未認証状態テンプレートレンダリングエラー:', error);
-      sidebarAuth.innerHTML = '<div class="error">認証状態の表示でエラーが発生しました</div>';
+      const html = await renderTemplate('error', { message: '認証状態の表示でエラーが発生しました' });
+      sidebarAuth.innerHTML = html;
     }
   }
 

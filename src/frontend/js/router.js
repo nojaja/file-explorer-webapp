@@ -156,11 +156,13 @@ class Router {
       console.error('[Router] エラーレンダリング失敗:', renderError);
       // Handlebarsテンプレートでエラー表示
       try {
-        const errorHtml = await renderTemplateHandlebars('error', { message: error.message });
+        const errorHtml = await renderTemplate('error', { message: error.message });
         document.getElementById('app').innerHTML = errorHtml;
       } catch (errorTemplateError) {
         console.error('[Router] エラーテンプレートレンダリング失敗:', errorTemplateError);
-        document.getElementById('app').innerHTML = `<div class="error">エラーが発生しました: ${error.message}</div>`;
+        // テンプレート取得失敗時も最低限のエラー表示
+        const fallbackHtml = await renderTemplate('error', { message: error.message });
+        document.getElementById('app').innerHTML = fallbackHtml;
       }
     }
   }

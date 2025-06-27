@@ -286,7 +286,8 @@ export class FileManager {
       fileList.innerHTML = html;
     } catch (error) {
       console.error('ファイル一覧テンプレートレンダリングエラー:', error);
-      fileList.innerHTML = '<tr><td colspan="5">ファイル一覧の表示でエラーが発生しました</td></tr>';
+      const html = await renderTemplate('error', { message: 'ファイル一覧の表示でエラーが発生しました' });
+      fileList.innerHTML = `<tr><td colspan="5">${html}</td></tr>`;
     }
     
     this.updateFileToolbar();
@@ -328,7 +329,8 @@ export class FileManager {
       bc.innerHTML = html;
     } catch (error) {
       console.error('パンくずリストテンプレートレンダリングエラー:', error);
-      bc.innerHTML = '<span class="breadcrumb-item">パンくずリストの表示でエラーが発生しました</span>';
+      const html = await renderTemplate('error', { message: 'パンくずリストの表示でエラーが発生しました' });
+      bc.innerHTML = html;
     }
   }
 
@@ -389,7 +391,8 @@ export class FileManager {
       container.style.display = 'block';
     } catch (error) {
       console.error('ROOT_PATH一覧テンプレートレンダリングエラー:', error);
-      container.innerHTML = '<div class="error">ROOT_PATH一覧の表示でエラーが発生しました</div>';
+      const html = await renderTemplate('error', { message: 'ROOT_PATH一覧の表示でエラーが発生しました' });
+      container.innerHTML = html;
       container.style.display = 'block';
     }
   }
