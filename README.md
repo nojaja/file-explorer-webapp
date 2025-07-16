@@ -41,3 +41,6 @@ docker-compose up -d --force-recreate --build app
 npm test         # 単体テスト
 npm run test:e2e # E2Eテスト
 ```
+
+## gitlabの初期パスワード
+/etc/gitlab/initial_root_password の中に初期パスワードがあります。

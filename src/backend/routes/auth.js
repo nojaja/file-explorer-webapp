@@ -3,7 +3,6 @@ import passport from "passport";
 import { getGitLabToken, getGitLabUserInfo } from "../util/gitlabTokenHelper.js";
 import { getHydraToken, getHydraUserInfo, acceptLoginChallenge, acceptConsentChallenge } from "../util/hydraTokenHelper.js";
 import { getUserPermissions } from "../services/authorizationService.js";
-import { authMiddleware } from "../middlewares/authMiddleware.js";
 
 const router = express.Router();
 
@@ -227,12 +226,7 @@ router.get("/logout", (req, res) => {
 // ログイン状態確認API
 router.get("/status", (req, res) => {
   // 現在の認証設定を動的に取得
-  const currentAuthConfig = global.authList || {
-    github: process.env.GITHUB === 'TRUE',
-    gitlab: process.env.GITLAB === 'TRUE', 
-    hydra: process.env.HYDRA === 'TRUE',
-    noAuthRequired: !(process.env.GITHUB === 'TRUE' || process.env.GITLAB === 'TRUE' || process.env.HYDRA === 'TRUE')
-  };
+  const currentAuthConfig = global.authList;
   
   // 認証なしモードの場合
   if (currentAuthConfig.noAuthRequired) {
@@ -319,14 +313,10 @@ router.get("/status", (req, res) => {
 });
 
 // 認証設定取得API
+// 認証プロバイダー詳細設定を返すAPI
 router.get('/config', (req, res) => {
-  const currentAuthConfig = global.authList || {
-    github: process.env.GITHUB === 'TRUE',
-    gitlab: process.env.GITLAB === 'TRUE',
-    hydra: process.env.HYDRA === 'TRUE',
-    noAuthRequired: !(process.env.GITHUB === 'TRUE' || process.env.GITLAB === 'TRUE' || process.env.HYDRA === 'TRUE')
-  };
-  res.json(currentAuthConfig);
+  // global.authConfigはindex.jsでJSONから初期化済み
+  res.json(global.authList);
 });
 
 // デバッグ用セッション情報API

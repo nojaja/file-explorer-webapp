@@ -27,43 +27,41 @@ import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
 import { loginUser, isEmailAuthorized, initializeAllowedEmails} from "./services/userService.js";
 import { initializeAuthorization } from "./services/authorizationService.js";
 import cors from "cors"; // CORSミドルウェアをインポート
+
 // .env読込
 dotenv.config();
 
-// 認証設定 - 環境変数からフラグを読み取り（グローバルスコープ）
-global.authList = {
-  github: process.env.GITHUB === 'TRUE',
-  gitlab: process.env.GITLAB === 'TRUE',
-  hydra: process.env.HYDRA === 'TRUE',
-  // 何も指定されていない場合、認証なしモード
-  noAuthRequired: !(process.env.GITHUB === 'TRUE' || process.env.GITLAB === 'TRUE' || process.env.HYDRA === 'TRUE')
-};
-global.authConfig = {
-  github: process.env.GITHUB === 'TRUE',
-  gitlab: {
-    GITLAB_CLIENT_ID: process.env.GITLAB_CLIENT_ID,
-    GITLAB_CLIENT_SECRET: process.env.GITLAB_CLIENT_SECRET,
-    OAUTH_CALLBACK_URL: process.env.GITLAB_CALLBACK_URL,
-    GITLAB_URL: process.env.GITLAB_URL || 'http://localhost:8929', // ブラウザ向けURLを使用（認証画面表示用）
-    GITLAB_URL_INTERNAL: process.env.GITLAB_URL_INTERNAL || 'http://gitlab:8929', // 内部通信用URL
-    GITLAB_TOKEN_URL_INTERNAL: process.env.GITLAB_TOKEN_URL_INTERNAL || "http://gitlab:8929/oauth/token",
-    GITLAB_USERINFO_URL_INTERNAL: process.env.GITLAB_USERINFO_URL_INTERNAL || 'http://gitlab:8929/api/v4/user', // 内部通信用ユーザー情報取得URL
-  },
-  hydra: {
-    HYDRA_CLIENT_ID: process.env.HYDRA_CLIENT_ID || "file-explorer-client",
-    HYDRA_CLIENT_SECRET: process.env.HYDRA_CLIENT_SECRET || "file-explorer-secret",
-    HYDRA_CALLBACK_URL: process.env.HYDRA_CALLBACK_URL || "http://localhost:3000/auth/hydra/callback",
-    HYDRA_AUTH_URL: process.env.HYDRA_AUTH_URL || "http://localhost:4444",
-    HYDRA_TOKEN_URL_INTERNAL: process.env.HYDRA_TOKEN_URL_INTERNAL || "http://hydra:4444/oauth2/token",
-    HYDRA_ADMIN_URL: process.env.HYDRA_ADMIN_URL || "http://localhost:4445",
-    HYDRA_ADMIN_URL_INTERNAL: process.env.HYDRA_ADMIN_URL_INTERNAL || "http://hydra:4445",
-    HYDRA_USERINFO_URL_INTERNAL: process.env.HYDRA_USERINFO_URL_INTERNAL || "http://hydra:4444/userinfo",
-    HYDRA_SCOPE: process.env.HYDRA_SCOPE|| "openid profile email",
-  }
-};
+// 認証プロバイダー設定ファイルのパス
+const providerConfigPath = process.env.AUTHORIZATION_PROVIDER_CONFIG_PATH || path.resolve(process.cwd(), "conf/authorization-provider-config.json");
+let providerConfig = null;
+try {
+  const raw = fs.readFileSync(providerConfigPath, "utf8");
+  providerConfig = JSON.parse(raw);
+  console.log('[認証プロバイダー設定] 読み込み成功:', providerConfigPath);
+} catch (e) {
+  console.error('[認証プロバイダー設定] 読み込み失敗:', providerConfigPath, e);
+  providerConfig = { providers: []};
+}
+
+// 有効なプロバイダー一覧
+const enabledProviders = (providerConfig.providers || []).filter(p => p.enabled);
+// authList: 各プロバイダーの有効/無効フラグ
+global.authList = Object.fromEntries(
+  enabledProviders.map(p => [p.id, true])
+);
+// noAuthRequired: どのプロバイダーも有効でなければtrue
+global.authList.noAuthRequired = enabledProviders.length === 0;
+
+// authConfig: 各プロバイダーの詳細設定
+global.authConfig = {};
+for (const p of providerConfig.providers || []) {
+  global.authConfig[p.id] = { ...p };
+}
+
+// 認可設定ファイルパス
 global.config = {
   authorizationConfigPath: process.env.AUTHORIZATION_CONFIG_PATH || path.resolve(process.cwd(), "conf/authorization-config.json")
-}
+};
 
 console.log('[認証設定]', global.authList, global.authConfig, global.config);
 console.log('[認証設定] 認可設定ファイルパス:', global.config.authorizationConfigPath);

@@ -31,6 +31,7 @@ WORKDIR /app
 # バイナリと証明書をコピー
 COPY --from=builder /app/app.bin /app/app.bin
 COPY --from=builder /app/conf/authorization-config.json /conf/authorization-config.json
+COPY --from=builder /app/conf/authorization-provider-config.json /conf/authorization-provider-config.json
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 # dist配下のバンドルをコピー
 COPY --from=builder /app/dist/ ./dist/

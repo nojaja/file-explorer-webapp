@@ -142,3 +142,4 @@ dist
 /doc
 /test-results
 /build
+/conf/authorization-provider-config.json

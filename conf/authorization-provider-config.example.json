@@ -1,0 +1,34 @@
+{
+  "providers": [
+    {
+      "id": "github",
+      "name": "Github",
+      "GITHUB_CLIENT_ID": "YOUR_GITLAB_CLIENT_ID",
+      "GITHUB_CLIENT_SECRET": "YOUR_GITLAB_CLIENT_SECRET",
+      "enabled": false
+    },
+    {
+      "id": "gitlab",
+      "name": "GitLab",
+      "GITLAB_CLIENT_ID": "YOUR_GITLAB_CLIENT_ID",
+      "GITLAB_CLIENT_SECRET": "YOUR_GITLAB_CLIENT_SECRET",
+      "GITLAB_CALLBACK_URL": "http://localhost:3000/auth/callback",
+      "GITLAB_URL": "http://localhost:8929",
+      "GITLAB_URL_INTERNAL": "http://gitlab:8929",
+      "enabled": true
+    },
+    {
+      "id": "hydra",
+      "name": "Hydra",
+      "HYDRA_CLIENT_ID": "your_hydra_client_id",
+      "HYDRA_CLIENT_SECRET": "your_hydra_client_secret",
+      "HYDRA_CALLBACK_URL": "http://localhost:3000/auth/hydra/callback",
+      "HYDRA_AUTH_URL": "http://localhost:4444/oauth2/auth",
+      "HYDRA_TOKEN_URL_INTERNAL": "http://hydra:4444/oauth2/token",
+      "HYDRA_ADMIN_URL": "http://localhost:4445",
+      "HYDRA_ADMIN_URL_INTERNAL": "http://hydra:4445",
+      "HYDRA_SCOPE": ["openid", "profile", "email"],
+      "enabled": true
+    }
+  ]
+}
