@@ -32,9 +32,9 @@ export function getAuthProviderConfig(fqdn, providerName) {
   if (!config.providers) return null;
   // 完全一致優先、なければdefault
   const fqdnConfig = config.providers[fqdn] || {};
-  let providerConfig = fqdnConfig[providerName];
+  let providerConfig = fqdnConfig[providerName] || fqdnConfig[providerName?.toLowerCase()];
   if (!providerConfig && config.providers["default"]) {
-    providerConfig = config.providers["default"][providerName];
+    providerConfig = config.providers["default"][providerName] || config.providers["default"][providerName?.toLowerCase()];
   }
   return providerConfig || null;
 }

@@ -25,6 +25,11 @@
     {{#if deleteButton}}
       {{{deleteButton}}}
     {{/if}}
+    {{#unless isDir}}
+      <button class="icon-btn" title="リネーム" onclick="startRenameFile('{{path}}', '{{name}}')">
+        <span class="material-icons">edit</span>
+      </button>
+    {{/unless}}
   </td>
 </tr>
 {{/each}}

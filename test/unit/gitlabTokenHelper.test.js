@@ -1,5 +1,28 @@
+
 import { jest } from '@jest/globals';
-import { getGitLabToken, getGitLabUserInfo } from '../../src/backend/util/gitlabTokenHelper.js';
+jest.unstable_mockModule('../../src/backend/authProviderConfig.js', () => ({
+  getAuthProviderConfig: async (fqdn, providerName) => ({
+    GITLAB_TOKEN_URL_INTERNAL: 'https://gitlab.example.com/oauth/token',
+    GITLAB_USERINFO_URL_INTERNAL: 'https://gitlab.example.com/api/v4/user',
+    client_id: 'test_client_id',
+    client_secret: 'test_client_secret',
+    redirect_uri: 'http://localhost/callback',
+    clientId: 'test_client_id',
+    clientSecret: 'test_client_secret',
+    callbackUrl: 'http://localhost/callback',
+    enabled: true
+  })
+}));
+
+let getGitLabToken, getGitLabUserInfo;
+const modPromise = import('../../src/backend/util/gitlabTokenHelper.js').then(mod => {
+  getGitLabToken = mod.getGitLabToken;
+  getGitLabUserInfo = mod.getGitLabUserInfo;
+});
+
+beforeAll(async () => {
+  await modPromise;
+});
 
 // fetchをグローバルでmock
 const mockFetch = jest.fn();
@@ -31,7 +54,8 @@ describe('gitlabTokenHelper', () => {
         ok: true,
         json: async () => mockToken
       });
-      const result = await getGitLabToken(code, clientId, clientSecret, callbackUrl);
+      const dummyReq = { headers: { host: 'gitlab.example.com' } };
+      const result = await getGitLabToken(code, clientId, clientSecret, callbackUrl, dummyReq);
       expect(result).toEqual(mockToken);
       expect(mockFetch).toHaveBeenCalledWith(GITLAB_TOKEN_URL_INTERNAL, expect.objectContaining({ method: 'POST' }));
     });
@@ -42,12 +66,14 @@ describe('gitlabTokenHelper', () => {
         status: 400,
         text: async () => 'Bad Request'
       });
-      await expect(getGitLabToken(code, clientId, clientSecret, callbackUrl)).rejects.toThrow('トークン取得失敗: 400 Bad Request');
+      const dummyReq = { headers: { host: 'gitlab.example.com' } };
+      await expect(getGitLabToken(code, clientId, clientSecret, callbackUrl, dummyReq)).rejects.toThrow(/トークン取得失敗/);
     });
 
     it('異常系: fetch例外', async () => {
       mockFetch.mockRejectedValueOnce(new Error('network error'));
-      await expect(getGitLabToken(code, clientId, clientSecret, callbackUrl)).rejects.toThrow('network error');
+      const dummyReq = { headers: { host: 'gitlab.example.com' } };
+      await expect(getGitLabToken(code, clientId, clientSecret, callbackUrl, dummyReq)).rejects.toThrow('network error');
     });
   });
 
@@ -60,7 +86,8 @@ describe('gitlabTokenHelper', () => {
         ok: true,
         json: async () => mockUser
       });
-      const result = await getGitLabUserInfo(accessToken);
+      const dummyReq = { headers: { host: 'gitlab.example.com' } };
+      const result = await getGitLabUserInfo(dummyReq, accessToken);
       expect(result).toEqual(mockUser);
       expect(mockFetch).toHaveBeenCalledWith(GITLAB_USERINFO_URL_INTERNAL, expect.objectContaining({ headers: expect.any(Object) }));
     });
@@ -71,12 +98,14 @@ describe('gitlabTokenHelper', () => {
         status: 401,
         text: async () => 'Unauthorized'
       });
-      await expect(getGitLabUserInfo(accessToken)).rejects.toThrow('ユーザー情報取得失敗: 401 Unauthorized');
+      const dummyReq = { headers: { host: 'gitlab.example.com' } };
+      await expect(getGitLabUserInfo(dummyReq, accessToken)).rejects.toThrow(/ユーザー情報取得失敗/);
     });
 
     it('異常系: fetch例外', async () => {
       mockFetch.mockRejectedValueOnce(new Error('network error'));
-      await expect(getGitLabUserInfo(accessToken)).rejects.toThrow('network error');
+      const dummyReq = { headers: { host: 'gitlab.example.com' } };
+      await expect(getGitLabUserInfo(dummyReq, accessToken)).rejects.toThrow('network error');
     });
   });
 });

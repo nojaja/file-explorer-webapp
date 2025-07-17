@@ -1,0 +1,1 @@
+{"rootPaths":[{"id":"testroot","path":"D:\\devs\\workspace202111\\file-explorer-webapp\\test\\testdata_del","isDefault":true,"permissions":{"user@example.com":"full"}}],"authorization":{"rules":[],"defaultPermission":"full","permissions":{"full":{"canView":true,"canDownload":true,"canUpload":true,"canDelete":true}}}}

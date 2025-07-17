@@ -69,6 +69,7 @@ export class FileManager {
     // グローバル変数との互換性
     window.uiState = this.uiState;
     window.rootPaths = this.rootPaths;
+    window.fileManager = this;
   }
 
   /**
@@ -289,8 +290,69 @@ export class FileManager {
       const html = await renderTemplate('error', { message: 'ファイル一覧の表示でエラーが発生しました' });
       fileList.innerHTML = `<tr><td colspan="5">${html}</td></tr>`;
     }
-    
+
     this.updateFileToolbar();
+
+    // リネーム編集モードの初期化
+    window.startRenameFile = (path, name) => {
+      const row = Array.from(document.querySelectorAll('tr')).find(tr => tr.innerText.includes(name));
+      if (!row) return;
+      const nameCell = row.querySelector('td');
+      if (!nameCell) return;
+      // 編集input生成
+      nameCell.innerHTML = `<input type="text" value="${name}" class="rename-input" style="width:70%">`
+        + `<button class='icon-btn' title='確定' onclick='confirmRenameFile("${path}")'><span class='material-icons'>check</span></button>`
+        + `<button class='icon-btn' title='キャンセル' onclick='cancelRenameFile()'><span class='material-icons'>close</span></button>`;
+      // フォーカス
+      setTimeout(() => {
+        const input = nameCell.querySelector('input');
+        if (input) input.focus();
+        input.onkeydown = (e) => {
+          if (e.key === 'Enter') window.confirmRenameFile(path);
+          if (e.key === 'Escape') window.cancelRenameFile();
+        };
+      }, 10);
+      window._renameTarget = { path, row, nameCell, oldName: name };
+    };
+
+    window.cancelRenameFile = () => {
+      if (!window._renameTarget) return;
+      const { nameCell, oldName } = window._renameTarget;
+      nameCell.innerHTML = oldName;
+      window._renameTarget = null;
+    };
+
+    window.confirmRenameFile = async (path) => {
+      if (!window._renameTarget) return;
+      const { nameCell, oldName } = window._renameTarget;
+      const input = nameCell.querySelector('input');
+      if (!input) return;
+      const newName = input.value.trim();
+      // バリデーション
+      if (!newName) return alert('ファイル名は空にできません');
+      if (/[/\\:*?"<>|]/.test(newName)) return alert('ファイル名に不正な文字が含まれています');
+      // 重複チェック
+      const names = Array.from(document.querySelectorAll('tr td:first-child')).map(td => td.innerText.trim());
+      if (names.includes(newName) && newName !== oldName) return alert('同名のファイルが既に存在します');
+      // API呼び出し
+      try {
+        const rootPathId = window.fileManager.uiState.selectedRootPath?.id;
+        const res = await fetch('/api/rename', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path, newName, rootPathId }),
+          credentials: 'include'
+        });
+        if (!res.ok) throw new Error('リネームに失敗しました');
+        window._renameTarget = null;
+        // UI更新
+        await window.fileManager.fetchFiles(window.fileManager.uiState.currentPath);
+      } catch (e) {
+        alert(e.message);
+        nameCell.innerHTML = oldName;
+        window._renameTarget = null;
+      }
+    };
   }
 
   /**

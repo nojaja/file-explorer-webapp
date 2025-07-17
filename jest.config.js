@@ -1,5 +1,5 @@
 export default {
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
   transform: {
     '^.+\\.[jt]sx?$': ['babel-jest', { configFile: './babel.config.cjs' }]
   },

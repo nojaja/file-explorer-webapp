@@ -1,6 +1,16 @@
 import fs from "fs/promises";
 import path from "path";
 import { getRootPathById, getDefaultRootPath } from "./authorizationService.js";
+/**
+ * ROOT_PATH IDから物理パス（絶対パス）を返す
+ * @param {string} rootPathId
+ * @returns {string|null}
+ */
+export function getRootPathPhysicalDir(rootPathId) {
+  const relPath = getRootPathById(rootPathId);
+  if (!relPath) return null;
+  return path.resolve(process.cwd(), relPath);
+}
 
 /**
  * 指定されたROOT_PATH IDとパスでファイル一覧を取得

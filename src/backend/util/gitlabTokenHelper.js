@@ -16,7 +16,10 @@ export async function getGitLabToken(code, clientId, clientSecret, callbackUrl, 
     // 内部通信用のGitLab URLを使用
     // FQDNごとの設定取得
     const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
-    const gitlabConfig = getAuthProviderConfig(fqdn, 'gitlab');
+    const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+    console.log('[getGitLabToken] fqdn:', fqdn, 'provider:', 'gitlab');
+    const gitlabConfig = await getAuthProviderConfig(fqdn, 'gitlab');
+    console.log('[getGitLabToken] gitlabConfig:', gitlabConfig);
     const gitlabInternalUrl = gitlabConfig?.GITLAB_TOKEN_URL_INTERNAL;
     const tokenEndpoint = `${gitlabInternalUrl}`;
 
@@ -55,12 +58,15 @@ export async function getGitLabToken(code, clientId, clientSecret, callbackUrl, 
  * @param {string} accessToken - アクセストークン
  * @returns {Promise<Object>} - ユーザー情報
  */
-export async function getGitLabUserInfo(accessToken, req) {
+export async function getGitLabUserInfo(req, accessToken) {
   try {
     // GitLabのユーザー情報エンドポイント（内部通信用）
     // FQDNごとの設定取得
     const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
-    const gitlabConfig = getAuthProviderConfig(fqdn, 'gitlab');
+    const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+    console.log('[getGitLabUserInfo] fqdn:', fqdn, 'provider:', 'gitlab');
+    const gitlabConfig = await getAuthProviderConfig(fqdn, 'gitlab');
+    console.log('[getGitLabUserInfo] gitlabConfig:', gitlabConfig);
     const gitlabInternalUrl = gitlabConfig?.GITLAB_USERINFO_URL_INTERNAL;
     const userInfoUrl = `${gitlabInternalUrl}`;
 

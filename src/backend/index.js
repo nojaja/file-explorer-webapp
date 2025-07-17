@@ -15,6 +15,7 @@ import testAuthRouter from "./routes/test-auth.js";
 import rootPathsRouter from "./routes/rootpaths.js";
 import uploadRouter from "./routes/upload.js";
 import permissionsRouter from "./routes/permissions.js";
+import renameRouter from "./routes/rename.js";
 import { 
   acceptLoginChallenge, 
   acceptConsentChallenge, 
@@ -170,6 +171,7 @@ app.use("/api/delete", deleteRouter);
 app.use("/api/rootpaths", rootPathsRouter);
 app.use("/api/upload", uploadRouter);
 app.use("/api/permissions", permissionsRouter);
+app.use("/api/rename", renameRouter);
 app.use("/test/auth", testAuthRouter);
 app.use("/auth", authRouter);
 app.use("/test/auth", testAuthRouter);

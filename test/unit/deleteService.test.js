@@ -14,9 +14,16 @@ describe('deleteService', () => {
     testDir = path.resolve('./test/testdata_del');
     await fs.mkdir(testDir, { recursive: true });
     await fs.writeFile(path.join(testDir, 'del.txt'), 'del');
+    // 認可設定パスをテスト用にセット
+    global.config = global.config || {};
+    global.config.authorizationConfigPath = path.resolve('./test/test-authorization-config.json');
+    // ダミー認可設定ファイル作成
+    const dummyConfig = {
+      rootPaths: [{ id: 'testroot', path: testDir, isDefault: true, permissions: { 'user@example.com': 'full' } }],
+      authorization: { rules: [], defaultPermission: 'full', permissions: { full: { canView: true, canDownload: true, canUpload: true, canDelete: true } } }
+    };
+    await fs.writeFile(global.config.authorizationConfigPath, JSON.stringify(dummyConfig), 'utf8');
     authz.initializeAuthorization();
-    const config = { rootPaths: [{ id: 'testroot', path: testDir, isDefault: true, permissions: { 'user@example.com': 'full' } }] };
-    Object.assign(authz.authorizationConfig, config);
     testRootId = 'testroot';
   });
   afterAll(async () => {

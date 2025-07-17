@@ -54,11 +54,11 @@ export async function getHydraToken(req, code, clientId, clientSecret, callbackU
  * @param {string} accessToken - アクセストークン
  * @returns {Promise<Object>} - ユーザー情報
  */
-export async function getHydraUserInfo(accessToken) {
+export async function getHydraUserInfo(accessToken, req) {
     try {
         // Hydra UserInfo エンドポイント（内部通信用）
         // FQDNごとの設定取得
-        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+        const fqdn = req && req.headers && req.headers.host ? req.headers.host : (typeof window !== 'undefined' ? window.location.host : 'localhost');
         const { getAuthProviderConfig } = await import('../authProviderConfig.js');
         const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
         const hydraUserInfoUrl = hydraConfig?.HYDRA_USERINFO_URL_INTERNAL;
