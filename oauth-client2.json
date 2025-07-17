@@ -4,7 +4,7 @@
   "grant_types": ["authorization_code", "refresh_token"],
   "response_types": ["code"],
   "scope": "openid profile email",
-  "redirect_uris": ["http://a.localhost:3000/auth/hydra/callback"],
+  "redirect_uris": ["http://a.localhost:3000/test/auth/hydra/callback"],
   "token_endpoint_auth_method": "client_secret_post",
   "subject_type": "public",
   "userinfo_signed_response_alg": "none",

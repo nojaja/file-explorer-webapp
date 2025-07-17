@@ -15,13 +15,14 @@ export class AuthManager {
    */
   async loadAuthConfig() {
     try {
-      const res = await fetch('/auth/config');
+      // WEB_ROOT_PATH対応: 相対パスでAPIリクエスト
+      const res = await fetch('./auth/config');
       this.authConfig = await res.json();
       console.log('[AuthManager] authConfig loaded:', this.authConfig);
-      
+
       // グローバルに設定（既存コードとの互換性）
       window.authConfig = this.authConfig;
-      
+
     } catch (e) {
       console.error('[AuthManager] authConfig取得失敗:', e);
       this.authConfig = null;
@@ -43,7 +44,7 @@ export class AuthManager {
       }
 
       // 認証状態取得
-      const res = await fetch('/auth/status');
+      const res = await fetch('./auth/status');
       const data = await res.json();
       
       sidebarAuth.innerHTML = '';
@@ -120,7 +121,7 @@ export class AuthManager {
       const logoutBtn = document.getElementById('logout-btn');
       if (logoutBtn) {
         logoutBtn.onclick = async () => {
-          await fetch('/auth/logout');
+          await fetch('./auth/logout');
           location.reload();
         };
       }
@@ -142,7 +143,7 @@ export class AuthManager {
       loginButtons.push({
         id: 'login-gitlab-btn',
         text: 'GitLabでログイン',
-        href: '/auth/gitlab'
+        href: './auth/gitlab'
       });
     }
     
@@ -150,7 +151,7 @@ export class AuthManager {
       loginButtons.push({
         id: 'hydra-login-btn',
         text: 'Hydraでログイン',
-        href: '/auth/hydra'
+        href: './auth/hydra'
       });
     }
     
@@ -158,7 +159,7 @@ export class AuthManager {
       loginButtons.push({
         id: 'login-github-btn',
         text: 'GitHubでログイン',
-        href: '/auth/github'
+        href: './auth/github'
       });
     }
     
@@ -190,7 +191,7 @@ export class AuthManager {
    */
   async logout() {
     try {
-      await fetch('/auth/logout');
+      await fetch('./auth/logout');
       location.reload();
     } catch (error) {
       console.error('[AuthManager] ログアウトエラー:', error);

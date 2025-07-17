@@ -81,7 +81,7 @@ export class FileManager {
     if (!rootPathId) return null;
     
     try {
-      const url = `/api/permissions?rootPathId=${encodeURIComponent(rootPathId)}`;
+      const url = `./api/permissions?rootPathId=${encodeURIComponent(rootPathId)}`;
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('権限情報の取得に失敗しました');
       const data = await res.json();
@@ -97,7 +97,8 @@ export class FileManager {
    */
   async fetchRootPaths() {
     try {
-      const res = await fetch('/api/rootpaths', { credentials: 'include' });
+      const url = `./api/rootpaths`;
+      const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) {
         if (res.status === 401) {
           console.log('[FileManager] 認証が必要です');
@@ -133,7 +134,8 @@ export class FileManager {
    */
   async selectRootPath(rootPathId) {
     try {
-      const res = await fetch('/api/rootpaths/select', {
+      const url = `./api/rootpaths/select`;
+      const res = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -194,7 +196,7 @@ export class FileManager {
    */
   async fetchFiles(path = '') {
     try {
-      let url = '/api/list';
+      let url = `./api/list`;
       const params = new URLSearchParams();
       
       if (path) {
@@ -227,7 +229,7 @@ export class FileManager {
       }
       
       await this.renderFiles(data.files || []);
-      await this.renderBreadcrumb(path ? path.split('/').filter(Boolean) : []); // ルート
+      await this.renderBreadcrumb(path ? path.split('/') : []);
       this.renderParentButton();
       
       const fileTable = document.getElementById('file-table');
@@ -268,8 +270,8 @@ export class FileManager {
       const renameButton = `<button class="icon-btn" title="名前変更" onclick="startRenameFile('${f.path}','${f.name}')"><span class="material-icons">edit</span></button>`;
       // ダウンロードURL生成（ROOT_PATHを考慮）
       const rootPathParam = this.uiState.selectedRootPath && this.uiState.selectedRootPath.id ? `&rootPathId=${this.uiState.selectedRootPath.id}` : '';
-      const downloadFileUrl = `/api/download/file?path=${encodeURIComponent(f.path)}${rootPathParam}`;
-      const downloadFolderUrl = `/api/download/folder?path=${encodeURIComponent(f.path)}${rootPathParam}`;
+      const downloadFileUrl = `./api/download/file?path=${encodeURIComponent(f.path)}${rootPathParam}`;
+      const downloadFolderUrl = `./api/download/folder?path=${encodeURIComponent(f.path)}${rootPathParam}`;
 
       return {
         name: f.name,
@@ -339,7 +341,7 @@ export class FileManager {
       // API呼び出し
       try {
         const rootPathId = window.fileManager.uiState.selectedRootPath?.id;
-        const res = await fetch('/api/rename', {
+        const res = await fetch('./api/rename', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ path, newName, rootPathId }),
@@ -467,7 +469,7 @@ export class FileManager {
    */
   async changeDir(path) {
     try {
-      let url = '/api/list';
+      let url = `./api/list`;
       const params = new URLSearchParams();
       
       if (path) {
@@ -532,7 +534,7 @@ export class FileManager {
     if (!confirm(`${path} を削除しますか？`)) return;
     
     try {
-      let url = '/api/delete/file';
+      let url = './api/delete/file';
       const params = new URLSearchParams();
       params.append('path', path);
       
@@ -623,7 +625,7 @@ export class FileManager {
     formData.append('path', this.uiState.currentPath || '');
     
     try {
-      const res = await fetch('/api/upload', {
+      const res = await fetch('./api/upload', {
         method: 'POST',
         body: formData,
         credentials: 'include'

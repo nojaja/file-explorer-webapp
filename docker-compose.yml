@@ -37,8 +37,8 @@ services:
     environment:
       - DSN=memory
       - URLS_SELF_ISSUER=http://localhost:4444/
-      - URLS_CONSENT=http://localhost:3000/auth/consent
-      - URLS_LOGIN=http://localhost:3000/auth/login
+      - URLS_CONSENT=http://localhost:3000/test/auth/consent
+      - URLS_LOGIN=http://localhost:3000/test/auth/login
       - SECRETS_SYSTEM=youReallyNeedToChangeThis
       - URLS_ADMIN=http://localhost:4445/
     command:

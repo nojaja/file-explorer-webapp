@@ -227,7 +227,7 @@ router.get("/callback", async (req, res, next) => {
       }
       if (!gitlabConfig) {
         console.error(`[auth/callback] FQDN=${fqdn} のGitLab認証設定が見つかりません`);
-        return res.redirect("/?error=gitlab_config");
+        return res.redirect((global?.config?.rootPrefix || '/')+"/?error=gitlab_config");
       }
       // GitLabトークンを取得
       const tokenData = await getGitLabToken(
@@ -247,10 +247,10 @@ router.get("/callback", async (req, res, next) => {
       
       // ログイン後のリダイレクト
       console.log(`[auth/callback] GitLab認証成功、トップページにリダイレクト`);
-      return res.redirect('/');
+      return res.redirect(global?.config?.rootPrefix || '/');
     } catch (error) {
       console.error(`[auth/callback] GitLab認証エラー:`, error);
-      return res.redirect("/?error=gitlab_auth");
+      return res.redirect((global?.config?.rootPrefix || '/')+"/?error=gitlab_auth");
     }
   }
   // Hydraコールバックで認可コードがある場合、手動でトークン取得を試みる
@@ -272,7 +272,7 @@ router.get("/callback", async (req, res, next) => {
       }
       if (!hydraConfig) {
         console.error(`[auth/callback] FQDN=${fqdn} のHydra認証設定が見つかりません`);
-        return res.redirect("/?error=hydra_config");
+        return res.redirect((global?.config?.rootPrefix || '/')+"/?error=hydra_config");
       }
       // Hydraトークンを手動取得
       const tokenData = await getHydraToken(
@@ -307,7 +307,7 @@ router.get("/callback", async (req, res, next) => {
       // ログイン後のリダイレクト
       console.log(`[auth/callback] Hydra認証成功、トップページにリダイレクト`);
       console.log(`[auth/callback] 設定されたユーザー情報:`, profileUser);
-      return res.redirect('/');
+      return res.redirect(global?.config?.rootPrefix || '/');
     } catch (error) {
       console.error(`[auth/callback] Hydra認証エラー:`, error);
       // エラーの場合、Passportのフローにフォールバック
@@ -321,7 +321,7 @@ router.get("/callback", async (req, res, next) => {
 
 // Hydra認証コールバック専用
 router.get("/hydra/callback", passport.authenticate("hydra", {
-  failureRedirect: "/?error=hydra_auth"
+  failureRedirect: (global?.config?.rootPrefix || '/')+"/?error=hydra_auth"
 }), (req, res) => {
   console.log(`[auth/hydra/callback] Hydra認証成功`);
   console.log(`[auth/hydra/callback] ユーザー情報:`, req.user);
@@ -331,8 +331,8 @@ router.get("/hydra/callback", passport.authenticate("hydra", {
   req.session.accessToken = req.user.accessToken;
   req.session.idToken = req.user.idToken;
   req.session.isAuthenticated = true;
-  
-  res.redirect("/");
+  //rootPrefixをredirect先に設定
+  res.redirect(global?.config?.rootPrefix || '/');
 });
 
 // ログアウト
@@ -346,7 +346,8 @@ router.get("/logout", (req, res) => {
   
   // Passport認証をログアウト
   req.logout(() => {
-    res.redirect("/");
+    //rootPrefixをredirect先に設定
+    res.redirect(global?.config?.rootPrefix || '/');
   });
 });
 

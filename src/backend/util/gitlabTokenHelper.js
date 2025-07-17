@@ -1,5 +1,3 @@
-
-import { getAuthProviderConfig } from '../authProviderConfig.js';
 // GitLabトークン取得処理のカスタムヘルパー
 
 /**

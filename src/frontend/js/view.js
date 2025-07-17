@@ -51,7 +51,7 @@ export class CustomHandlebarsFactory {
     }
 
     try {
-      const url = `/assets/${templateName}.tmp`;
+      const url = `./assets/${templateName}.tmp`;
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`テンプレート取得失敗: ${url} (${response.status})`);

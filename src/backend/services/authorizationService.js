@@ -1,7 +1,7 @@
 // 認可管理サービス - emailベースの権限制御（複数ROOT_PATH対応）
 import fs from 'fs';
 import path from 'path';
-import { getDiskSpace } from '../utils/diskSpace.js';
+import { getDiskSpace } from '../util/diskSpace.js';
 
 export let authorizationConfig = null;
 

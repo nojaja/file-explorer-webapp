@@ -18,7 +18,7 @@ export async function getTemplate(templateName) {
   }
 
   try {
-    const response = await fetch(`/assets/${templateName}.tmp`);
+    const response = await fetch(`./assets/${templateName}.tmp`);
     if (!response.ok) {
       throw new Error(`テンプレート ${templateName} の取得に失敗しました: ${response.status}`);
     }

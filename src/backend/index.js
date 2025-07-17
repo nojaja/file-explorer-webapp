@@ -1,12 +1,12 @@
-import 'source-map-support/register.js';
+import path from "path";
+import fs from "fs";
+import dotenv from "dotenv";
+import * as sourceMapSupport from 'source-map-support';
 import express from "express";
 import session from "express-session";
 import passport from "passport";
-import dotenv from "dotenv";
-import path from "path";
 import { fileURLToPath } from "url";
 import Handlebars from "handlebars";
-import fs from "fs";
 import listRouter from "./routes/list.js";
 import downloadRouter from "./routes/download.js";
 import deleteRouter from "./routes/delete.js";
@@ -27,12 +27,21 @@ import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
 import { loginUser, isEmailAuthorized, initializeAllowedEmails} from "./services/userService.js";
 import { initializeAuthorization } from "./services/authorizationService.js";
 import cors from "cors"; // CORSミドルウェアをインポート
-import * as sourceMapSupport from 'source-map-support'
 
 //デバッグ用のsourceMap設定
 sourceMapSupport.install();
 // .env読込
 dotenv.config();
+
+const WEB_ROOT_PATH = (process.env.WEB_ROOT_PATH || "/").replace(/(^\/+|\/+?$)/g, ""); // 先頭・末尾のスラッシュを除去
+const rootPrefix = WEB_ROOT_PATH ? `/${WEB_ROOT_PATH}/`.replace(/\/+/g, "/") : "/";
+console.log("[WEB_ROOT_PATH] 設定されたWEB_ROOT_PATH:", WEB_ROOT_PATH);
+
+// 認可設定ファイルパス
+global.config = {
+  authorizationConfigPath: process.env.AUTHORIZATION_CONFIG_PATH || path.resolve(process.cwd(), "conf/authorization-config.json"),
+  rootPrefix: rootPrefix
+};
 
 // 認証プロバイダー設定ファイルのパス
 const providerConfigPath = process.env.AUTHORIZATION_PROVIDER_CONFIG_PATH || path.resolve(process.cwd(), "conf/authorization-provider-config.json");
@@ -76,11 +85,6 @@ try {
 } catch (error) {
   console.error('[認証プロバイダー設定] 読み込みエラー:', error);
 }
-
-// 認可設定ファイルパス
-global.config = {
-  authorizationConfigPath: process.env.AUTHORIZATION_CONFIG_PATH || path.resolve(process.cwd(), "conf/authorization-config.json")
-};
 
 console.log('[認証設定]', global.authList, global.authConfig, global.config);
 console.log('[認証設定] 認可設定ファイルパス:', global.config.authorizationConfigPath);
@@ -130,13 +134,26 @@ app.use(gitlabUrlReplaceMiddleware);
 app.use(hydraUrlReplaceMiddleware);
 
 // dist配下のバンドルを静的配信（catch-allより前に追加）
-app.use('/dist', express.static(path.join(process.cwd(), 'dist')));
+app.use(`${rootPrefix}dist`, express.static(path.join(process.cwd(), 'dist')));
 // assetsパスをdist/assetsに配信（SPA対応）
-app.use('/assets', express.static(path.join(process.cwd(), 'dist/assets')));
-// 既存のfrontend, styles配信
-app.use(express.static(path.join(process.cwd(), "src/frontend")));
+app.use(`${rootPrefix}assets`, express.static(path.join(process.cwd(), 'dist/assets')));
+// index.htmlのみWEB_ROOT_PATHを埋め込んで返す
+app.get(`${rootPrefix}`, async (req, res, next) => {
+  const indexPath = path.join(process.cwd(), 'src/frontend/index.html');
+  try {
+    let html = await fs.promises.readFile(indexPath, 'utf8');
+    html = html.replace('__WEB_ROOT_PATH__', rootPrefix.replace(/\/$/, ''));
+    res.setHeader('Content-Type', 'text/html');
+    res.send(html);
+  } catch (e) {
+    console.error('[index.html配信エラー]', e);
+    res.status(500).send('index.htmlの配信に失敗しました');
+  }
+});
+// その他静的ファイル
+app.use(rootPrefix, express.static(path.join(process.cwd(), "src/frontend")));
 // CSS ファイルの配信（正しいMIMEタイプを設定）
-app.use("/styles", (req, res, next) => {
+app.use(`${rootPrefix}styles`, (req, res, next) => {
   const cssPath = path.join(process.cwd(), "src/styles");
   console.log(`[CSS middleware] リクエストパス: ${req.path}, フルパス: ${req.originalUrl}, ファイルパス: ${cssPath}`);
   console.log(`[CSS middleware] process.cwd(): ${process.cwd()}`);
@@ -165,19 +182,18 @@ app.use("/styles", (req, res, next) => {
 app.use(express.json());
 
 // ルーティング
-app.use("/api/list", listRouter);
-app.use("/api/download", downloadRouter);
-app.use("/api/delete", deleteRouter);
-app.use("/api/rootpaths", rootPathsRouter);
-app.use("/api/upload", uploadRouter);
-app.use("/api/permissions", permissionsRouter);
-app.use("/api/rename", renameRouter);
-app.use("/test/auth", testAuthRouter);
-app.use("/auth", authRouter);
-app.use("/test/auth", testAuthRouter);
+app.use(`${rootPrefix}api/list`, listRouter);
+app.use(`${rootPrefix}api/download`, downloadRouter);
+app.use(`${rootPrefix}api/delete`, deleteRouter);
+app.use(`${rootPrefix}api/rootpaths`, rootPathsRouter);
+app.use(`${rootPrefix}api/upload`, uploadRouter);
+app.use(`${rootPrefix}api/permissions`, permissionsRouter);
+app.use(`${rootPrefix}api/rename`, renameRouter);
+app.use(`${rootPrefix}auth`, authRouter);
+app.use(`${rootPrefix}test/auth`, testAuthRouter);
 
 // hydra用ログイン画面
-app.get("/login", (req, res) => {
+app.get(`${rootPrefix}login`, (req, res) => {
   const { login_challenge } = req.query;
   try {
     const html = renderTemplate('login', { login_challenge });
@@ -188,7 +204,7 @@ app.get("/login", (req, res) => {
   }
 });
 
-app.post("/login", express.urlencoded({ extended: false }), async (req, res) => {
+app.post(`${rootPrefix}login`, express.urlencoded({ extended: false }), async (req, res) => {
   console.log("[アクセス] /login POST 受信", req.body);
   const { login_challenge, username, email } = req.body;
     // 入力値検証
@@ -284,7 +300,7 @@ app.post("/login", express.urlencoded({ extended: false }), async (req, res) => 
   }
 });
 
-app.get("/consent", async (req, res) => {
+app.get(`${rootPrefix}consent`, async (req, res) => {
   const { consent_challenge } = req.query;
   try {
     // hydraTokenHelperを使用してコンセントリクエスト情報を取得
@@ -333,7 +349,7 @@ app.get("/consent", async (req, res) => {
   }
 });
 
-app.post("/consent", express.urlencoded({ extended: false }), async (req, res) => {
+app.post(`${rootPrefix}consent`, express.urlencoded({ extended: false }), async (req, res) => {
   const { consent_challenge, accept } = req.body;
   if (!consent_challenge) return res.status(400).send("不正なリクエスト");
   

@@ -23,7 +23,7 @@ if [ -z "$CLIENT_EXISTS" ]; then
         --grant-types authorization_code,refresh_token \
         --response-types code \
         --scope openid,profile,email \
-        --callbacks http://localhost:3000/auth/callback \
+        --callbacks http://localhost:3000/test/auth/callback \
         --token-endpoint-auth-method client_secret_post
     
     if [ $? -eq 0 ]; then
