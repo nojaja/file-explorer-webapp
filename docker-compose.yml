@@ -49,6 +49,7 @@ services:
       - hydra
     volumes:
       - ./oauth-client.json:/oauth-client.json
+      - ./oauth-client2.json:/oauth-client2.json
     environment:
       - HYDRA_ADMIN_URL=http://hydra:4445
     command: >
@@ -66,6 +67,14 @@ services:
         else
           echo 'OAuthクライアントを作成中...'
           curl -X POST http://hydra:4445/admin/clients -H 'Content-Type: application/json' -d @/oauth-client.json
+          echo ''
+          echo 'OAuthクライアントが正常に作成されました！'
+        fi
+        if curl -s http://hydra:4445/admin/clients/d92b522a-a1cb-a2f1-a39f-c0fc12b6c4e9 2>/dev/null | grep -q 'd92b522a-a1cb-a2f1-a39f-c0fc12b6c4e9'; then
+          echo 'OAuthクライアントは既に存在します'
+        else
+          echo 'OAuthクライアントを作成中...'
+          curl -X POST http://hydra:4445/admin/clients -H 'Content-Type: application/json' -d @/oauth-client2.json
           echo ''
           echo 'OAuthクライアントが正常に作成されました！'
         fi
