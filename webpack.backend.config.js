@@ -6,7 +6,7 @@ const __dirname = path.dirname(__filename);
 
 export default {
   entry: './src/backend/index.js',
-  devtool: 'inline-source-map',
+  devtool: 'source-map', // pkgバイナリでの実行時はinline-source-map不可
   target: 'node',
   mode: 'production',
   output: {

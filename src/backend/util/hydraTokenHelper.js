@@ -9,11 +9,15 @@
  * @param {string} state - CSRF保護用のstate値（必要な場合）
  * @returns {Promise<Object>} - トークン情報
  */
-export async function getHydraToken(code, clientId, clientSecret, callbackUrl, state = null) {
+export async function getHydraToken(req, code, clientId, clientSecret, callbackUrl, state = null) {
     try {
         // 内部通信用のHydra URLを使用
 
-        const hydraTokenUrl = global.authConfig.hydra.HYDRA_TOKEN_URL_INTERNAL;
+        // FQDNごとの設定取得
+        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+        const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+        const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+        const hydraTokenUrl = hydraConfig?.HYDRA_TOKEN_URL_INTERNAL;
         const tokenEndpoint = `${hydraTokenUrl}`;
 
         const response = await fetch(tokenEndpoint, {
@@ -53,7 +57,11 @@ export async function getHydraToken(code, clientId, clientSecret, callbackUrl, s
 export async function getHydraUserInfo(accessToken) {
     try {
         // Hydra UserInfo エンドポイント（内部通信用）
-        const hydraUserInfoUrl = global.authConfig.hydra.HYDRA_USERINFO_URL_INTERNAL;
+        // FQDNごとの設定取得
+        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+        const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+        const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+        const hydraUserInfoUrl = hydraConfig?.HYDRA_USERINFO_URL_INTERNAL;
         const userInfoUrl = `${hydraUserInfoUrl}`;
 
         const response = await fetch(userInfoUrl, {
@@ -82,9 +90,13 @@ export async function getHydraUserInfo(accessToken) {
  * @param {string} subject - ユーザーID
  * @returns {Promise<Object>} - 受け入れレスポンス
  */
-export async function acceptLoginChallenge(loginChallenge, subject = 'test-user') {
+export async function acceptLoginChallenge(req, loginChallenge, subject = 'test-user') {
     try {
-        const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
+        // FQDNごとの設定取得
+        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+        const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+        const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+        const hydraAdminUrl = hydraConfig?.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const acceptUrl = `${hydraAdminUrl}/admin/oauth2/auth/requests/login/accept`;
 
         const response = await fetch(`${acceptUrl}?login_challenge=${encodeURIComponent(loginChallenge)}`, {
@@ -121,9 +133,13 @@ export async function acceptLoginChallenge(loginChallenge, subject = 'test-user'
  * @param {Object} userInfo - ユーザー情報（username, emailを含む）
  * @returns {Promise<Object>} - 受け入れレスポンス
  */
-export async function acceptConsentChallenge(consentChallenge, scopes = ['openid', 'profile', 'email'], userInfo = null) {
+export async function acceptConsentChallenge(req, consentChallenge, scopes = ['openid', 'profile', 'email'], userInfo = null) {
     try {
-        const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
+        // FQDNごとの設定取得
+        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+        const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+        const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+        const hydraAdminUrl = hydraConfig?.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const acceptUrl = `${hydraAdminUrl}/admin/oauth2/auth/requests/consent/accept`;
 
         // ユーザー情報をパースしてIDトークンに含める
@@ -185,9 +201,13 @@ export async function acceptConsentChallenge(consentChallenge, scopes = ['openid
  * @param {string} errorDescription - エラーの説明
  * @returns {Promise<Object>} - 拒否レスポンス
  */
-export async function rejectConsentChallenge(consentChallenge, error = 'access_denied', errorDescription = 'ユーザーが拒否しました') {
+export async function rejectConsentChallenge(req, consentChallenge, error = 'access_denied', errorDescription = 'ユーザーが拒否しました') {
     try {
-        const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
+        // FQDNごとの設定取得
+        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+        const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+        const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+        const hydraAdminUrl = hydraConfig?.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const rejectUrl = `${hydraAdminUrl}/oauth2/auth/requests/consent/reject`;
 
         const response = await fetch(`${rejectUrl}?consent_challenge=${encodeURIComponent(consentChallenge)}`, {
@@ -220,9 +240,13 @@ export async function rejectConsentChallenge(consentChallenge, error = 'access_d
  * @param {string} consentChallenge - コンセントチャレンジ
  * @returns {Promise<Object>} - コンセントリクエスト情報
  */
-export async function getConsentRequest(consentChallenge) {
+export async function getConsentRequest(req, consentChallenge) {
     try {
-        const hydraAdminUrl = global.authConfig.hydra.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
+        // FQDNごとの設定取得
+        const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+        const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+        const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+        const hydraAdminUrl = hydraConfig?.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
         const requestUrl = `${hydraAdminUrl}/oauth2/auth/requests/consent`;
 
         const response = await fetch(`${requestUrl}?consent_challenge=${encodeURIComponent(consentChallenge)}`);

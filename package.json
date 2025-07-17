@@ -27,7 +27,8 @@
     "passport-gitlab2": "^2.0.0",
     "passport-oauth2": "^1.8.0",
     "pkg": "^5.8.1",
-    "promised-handlebars": "^2.0.1"
+    "promised-handlebars": "^2.0.1",
+    "source-map-support": "^0.5.21"
   },
   "devDependencies": {
     "@babel/core": "^7.27.4",

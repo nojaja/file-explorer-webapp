@@ -93,14 +93,22 @@ router.get('/config', (req, res) => {
 router.get('/hydra-config', (req, res) => {
     try {
         const hydraConfig = {
-            HYDRA_CLIENT_ID: global.authConfig?.hydra?.HYDRA_CLIENT_ID,
-            HYDRA_CALLBACK_URL: global.authConfig?.hydra?.HYDRA_CALLBACK_URL,
-            HYDRA_AUTH_URL: global.authConfig?.hydra?.HYDRA_AUTH_URL,
-            HYDRA_TOKEN_URL_INTERNAL: global.authConfig?.hydra?.HYDRA_TOKEN_URL_INTERNAL,
-            HYDRA_ADMIN_URL: global.authConfig?.hydra?.HYDRA_ADMIN_URL,
-            HYDRA_ADMIN_URL_INTERNAL: global.authConfig?.hydra?.HYDRA_ADMIN_URL_INTERNAL,
-            HYDRA_USERINFO_URL_INTERNAL: global.authConfig?.hydra?.HYDRA_USERINFO_URL_INTERNAL,
-            HYDRA_SCOPE: global.authConfig?.hydra?.HYDRA_SCOPE
+            // FQDNごとの設定取得
+            ...(() => {
+              const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+              const { getAuthProviderConfig } = require('../authProviderConfig.js');
+              const hydraConfig = getAuthProviderConfig(fqdn, 'hydra') || {};
+              return {
+                HYDRA_CLIENT_ID: hydraConfig.HYDRA_CLIENT_ID,
+                HYDRA_CALLBACK_URL: hydraConfig.HYDRA_CALLBACK_URL,
+                HYDRA_AUTH_URL: hydraConfig.HYDRA_AUTH_URL,
+                HYDRA_TOKEN_URL_INTERNAL: hydraConfig.HYDRA_TOKEN_URL_INTERNAL,
+                HYDRA_ADMIN_URL: hydraConfig.HYDRA_ADMIN_URL,
+                HYDRA_ADMIN_URL_INTERNAL: hydraConfig.HYDRA_ADMIN_URL_INTERNAL,
+                HYDRA_USERINFO_URL_INTERNAL: hydraConfig.HYDRA_USERINFO_URL_INTERNAL,
+                HYDRA_SCOPE: hydraConfig.HYDRA_SCOPE
+              };
+            })()
         };
         
         res.json({

@@ -1,3 +1,4 @@
+import 'source-map-support/register.js';
 import express from "express";
 import session from "express-session";
 import passport from "passport";
@@ -14,20 +15,21 @@ import testAuthRouter from "./routes/test-auth.js";
 import rootPathsRouter from "./routes/rootpaths.js";
 import uploadRouter from "./routes/upload.js";
 import permissionsRouter from "./routes/permissions.js";
-import { Strategy as GitLabStrategy } from "passport-gitlab2";
 import { 
   acceptLoginChallenge, 
   acceptConsentChallenge, 
   rejectConsentChallenge,
   getConsentRequest 
 } from "./util/hydraTokenHelper.js";
-import { Strategy as OAuth2Strategy } from "passport-oauth2";
 import { gitlabUrlReplaceMiddleware } from "./middlewares/gitlabUrlReplace.js";
 import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
 import { loginUser, isEmailAuthorized, initializeAllowedEmails} from "./services/userService.js";
 import { initializeAuthorization } from "./services/authorizationService.js";
 import cors from "cors"; // CORSミドルウェアをインポート
+import * as sourceMapSupport from 'source-map-support'
 
+//デバッグ用のsourceMap設定
+sourceMapSupport.install();
 // .env読込
 dotenv.config();
 
@@ -43,19 +45,35 @@ try {
   providerConfig = { providers: []};
 }
 
-// 有効なプロバイダー一覧
-const enabledProviders = (providerConfig.providers || []).filter(p => p.enabled);
-// authList: 各プロバイダーの有効/無効フラグ
-global.authList = Object.fromEntries(
-  enabledProviders.map(p => [p.id, true])
-);
-// noAuthRequired: どのプロバイダーも有効でなければtrue
-global.authList.noAuthRequired = enabledProviders.length === 0;
 
-// authConfig: 各プロバイダーの詳細設定
-global.authConfig = {};
-for (const p of providerConfig.providers || []) {
-  global.authConfig[p.id] = { ...p };
+// 新構造: providers: { [fqdn]: { [PROVIDER]: { ... } } }
+global.authList = {};
+global.authConfig = {};// authList: 各プロバイダーの有効/無効フラグ
+try {
+  if (providerConfig.providers && typeof providerConfig.providers === 'object') {
+    for (const fqdn of Object.keys(providerConfig.providers)) {
+      // 有効なプロバイダー一覧
+      // providerConfig.providers[fqdn]の中からenabledなプロバイダーのみ抽出し、{ [PROVIDER]: { ... } }形式にする
+      const enabledProviders = {};
+      for (const [providerName, providerObj] of Object.entries(providerConfig.providers[fqdn] || {})) {
+        if (providerObj && providerObj.enabled) {
+          enabledProviders[providerName] = providerObj;
+        }
+      }
+      console.log(`[認証プロバイダー設定] FQDN: ${fqdn}, 有効プロバイダー数: ${Object.keys(enabledProviders).length}`, enabledProviders);
+      global.authList[fqdn] = {noAuthRequired: false};
+      global.authConfig[fqdn] = {};
+      for (const providerName of Object.keys(enabledProviders)) {
+        const provConfig = enabledProviders[providerName];
+        global.authList[fqdn][providerName] = !!provConfig.enabled;
+        global.authConfig[fqdn][providerName] = { ...provConfig };
+      }
+      // noAuthRequired: どのプロバイダーも有効でなければtrue
+      global.authList[fqdn].noAuthRequired = enabledProviders.length === 0;
+    }
+  }
+} catch (error) {
+  console.error('[認証プロバイダー設定] 読み込みエラー:', error);
 }
 
 // 認可設定ファイルパス
@@ -242,7 +260,7 @@ app.post("/login", express.urlencoded({ extended: false }), async (req, res) => 
       email: loginResult.user.email,
       userId: loginResult.user.id
     });
-    const acceptData = await acceptLoginChallenge(login_challenge, subject);
+    const acceptData = await acceptLoginChallenge(req, login_challenge, subject);
     
     console.log("[hydra login accept] 成功:", acceptData);
     if (acceptData.redirect_to) return res.redirect(acceptData.redirect_to);
@@ -268,7 +286,7 @@ app.get("/consent", async (req, res) => {
   const { consent_challenge } = req.query;
   try {
     // hydraTokenHelperを使用してコンセントリクエスト情報を取得
-    const data = await getConsentRequest(consent_challenge);
+    const data = await getConsentRequest(req, consent_challenge);
     
     // ユーザー情報をsubjectから取得
     let userInfo = null;
@@ -319,7 +337,7 @@ app.post("/consent", express.urlencoded({ extended: false }), async (req, res) =
   
   try {
     // コンセントリクエスト情報を取得してユーザー情報を抽出
-    const consentRequestData = await getConsentRequest(consent_challenge);
+    const consentRequestData = await getConsentRequest(req, consent_challenge);
     let userInfo = null;
     try {
       userInfo = JSON.parse(consentRequestData.subject || '{}');
@@ -330,11 +348,11 @@ app.post("/consent", express.urlencoded({ extended: false }), async (req, res) =
     let data;
     if (accept === "1") {
       // 許可: hydraTokenHelperを使用してコンセント受け入れ（ユーザー情報付き）
-      data = await acceptConsentChallenge(consent_challenge, ["openid", "profile", "email"], userInfo);
+      data = await acceptConsentChallenge(req, consent_challenge, ["openid", "profile", "email"], userInfo);
       console.log("[consent accept] ユーザー情報を含めてコンセント受け入れ:", userInfo);
     } else {
       // 拒否: hydraTokenHelperを使用してコンセント拒否
-      data = await rejectConsentChallenge(consent_challenge);
+      data = await rejectConsentChallenge(req, consent_challenge);
     }
     
     // リダイレクト処理
@@ -379,76 +397,8 @@ renderTemplate = (templateName, data = {}) => {
   }
 };
 
-// Gitlab OAUTH
-if (global.authConfig && global.authConfig.gitlab && global.authConfig.gitlab.GITLAB_CLIENT_ID) {
-  passport.use(new GitLabStrategy({
-    clientID: global.authConfig.gitlab.GITLAB_CLIENT_ID,
-    clientSecret: global.authConfig.gitlab.GITLAB_CLIENT_SECRET,
-    callbackURL: global.authConfig.gitlab.OAUTH_CALLBACK_URL,
-    baseURL: global.authConfig.gitlab.GITLAB_URL, // ブラウザ向けURLを使用（認証画面表示用）
-    tokenURL: global.authConfig.gitlab.GITLAB_TOKEN_URL_INTERNAL, // トークン取得用のエンドポイント（内部URL使用）
-    authorizationURL: global.authConfig.gitlab.GITLAB_URL + '/oauth/authorize', // 認証画面URL（ブラウザ向けURL使用）
-  }, (accessToken, refreshToken, profile, done) => {
-    console.log('[gitlab passport] 認証成功:', {
-      accessToken: accessToken.substring(0, 20) + '...',
-      refreshToken: refreshToken ? refreshToken.substring(0, 20) + '...' : 'なし',
-      profile: {
-        id: profile.id,
-        username: profile.username,
-        displayName: profile.displayName
-      }
-    });
-    return done(null, profile);
-  }));
-} else {
-  console.log('[gitlab passport] GitLab認証は設定されていません。clientIDが見つかりません。');
-}
-
-// hydra OAUTH2
-if (global.authConfig && global.authConfig.hydra && global.authConfig.hydra.HYDRA_CLIENT_ID) {  passport.use("hydra", new OAuth2Strategy({
-    authorizationURL: global.authConfig.hydra.HYDRA_AUTH_URL, // ブラウザアクセス用URL
-    tokenURL: global.authConfig.hydra.HYDRA_TOKEN_URL_INTERNAL, // Docker環境ではhydra:4444を優先
-    clientID: global.authConfig.hydra.HYDRA_CLIENT_ID,
-    clientSecret: global.authConfig.hydra.HYDRA_CLIENT_SECRET,
-    callbackURL: global.authConfig.hydra.HYDRA_CALLBACK_URL,
-    scope: global.authConfig.hydra.HYDRA_SCOPE || "openid profile email",
-    skipUserProfile: false, // UserProfile取得を有効化してemailなどの情報を取得
-    state: true, // CSRF保護を有効化
-    passReqToCallback: true, // reqオブジェクトをコールバックに渡す
-    userProfileURL: global.authConfig.hydra.HYDRA_USERINFO_URL_INTERNAL // ユーザー情報取得エンドポイント
-  }, async (req, accessToken, refreshToken, profile, done) => {
-    // ユーザー情報をuserinfoエンドポイントから手動取得（passport-oauth2でprofileが空の場合の対策）
-    if (!profile || !profile.email) {
-      try {
-        const userInfoResponse = await fetch(global.authConfig.hydra.HYDRA_USERINFO_URL_INTERNAL, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          }
-        });
-        if (userInfoResponse.ok) {
-          const userInfo = await userInfoResponse.json();
-          console.log('[hydra passport] userinfoから取得したユーザー情報:', userInfo);
-          profile = userInfo;
-        }
-      } catch (error) {
-        console.warn('[hydra passport] userinfoエンドポイントからの情報取得失敗:', error);
-      }
-    }
-    
-    // hydraはprofile情報をid_tokenで返すため、ここでprofile取得処理を追加してもよい
-    // 必要に応じてjwtデコード等でprofileを構築
-    console.log('[hydra passport] 認証成功', {
-      accessToken: typeof accessToken === 'string' ? accessToken.substring(0, 20) + '...' : String(accessToken).substring(0, 20) + '...',
-      refreshToken: typeof refreshToken === 'string' ? refreshToken.substring(0, 20) + '...' : String(refreshToken || 'none').substring(0, 20) + '...',
-      refreshTokenType: typeof refreshToken,
-      profile: profile
-    });
-    console.log('[hydra passport] セッションID:', req.session?.id);
-    return done(null, { accessToken, refreshToken, profile });
-  }));
-} else {
-  console.log('[hydra passport] Hydra認証は設定されていません。clientIDが見つかりません。');
-}
+// --- パスポート戦略のグローバル初期化はFQDNごとの設定に対応できないためコメントアウト ---
+// 必要に応じてauth.js側でFQDNごとにStrategyを登録してください
 
 passport.serializeUser((user, done) => {
   done(null, user);
