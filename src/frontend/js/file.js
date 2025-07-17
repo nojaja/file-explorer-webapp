@@ -258,18 +258,19 @@ export class FileManager {
     // テンプレート用のデータを準備
     const templateData = files.map(f => {
       const isDir = f.type === 'dir';
-      
+
       // 削除ボタンの表示制御
       const canDelete = this.uiState.userPermissions?.canDelete ?? true;
       const deleteButton = canDelete 
         ? `<button class="icon-btn" title="削除" onclick="deleteFile('${f.path}')"><span class="material-icons">delete</span></button>`
         : '';
-      
+      // リネームボタン（ファイル・フォルダ両方に表示）
+      const renameButton = `<button class="icon-btn" title="名前変更" onclick="startRenameFile('${f.path}','${f.name}')"><span class="material-icons">edit</span></button>`;
       // ダウンロードURL生成（ROOT_PATHを考慮）
       const rootPathParam = this.uiState.selectedRootPath && this.uiState.selectedRootPath.id ? `&rootPathId=${this.uiState.selectedRootPath.id}` : '';
       const downloadFileUrl = `/api/download/file?path=${encodeURIComponent(f.path)}${rootPathParam}`;
       const downloadFolderUrl = `/api/download/folder?path=${encodeURIComponent(f.path)}${rootPathParam}`;
-      
+
       return {
         name: f.name,
         path: f.path,
@@ -278,7 +279,8 @@ export class FileManager {
         mtime: f.mtime ?? '',
         downloadFileUrl,
         downloadFolderUrl,
-        deleteButton
+        deleteButton,
+        renameButton
       };
     });
     
