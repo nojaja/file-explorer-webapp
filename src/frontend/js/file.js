@@ -408,16 +408,23 @@ export class FileManager {
     if ((!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) && this.rootPaths && this.rootPaths.length > 0) {
       this.uiState.rootPaths = this.rootPaths;
     }
-    
-    if ((!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) && (!this.rootPaths || this.rootPaths.length === 0)) {
-      try {
-        await this.fetchRootPaths();
-      } catch (error) {
-        console.error('[FileManager] ROOT_PATH再取得エラー:', error);
-      }
-    }
-    
+
+    // ★再取得ループを防止: rootPathsが空でも再取得しない
+    // if ((!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) && (!this.rootPaths || this.rootPaths.length === 0)) {
+    //   try {
+    //     await this.fetchRootPaths();
+    //   } catch (error) {
+    //     console.error('[FileManager] ROOT_PATH再取得エラー:', error);
+    //   }
+    // }
+
     if (!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) {
+      // 空の場合は何も表示しない or メッセージ表示
+      const container = document.getElementById('root-path-list-container');
+      if (container) {
+        container.innerHTML = '<div class="empty-root-path">利用可能なROOT_PATHがありません</div>';
+        container.style.display = 'block';
+      }
       return;
     }
     

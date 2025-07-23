@@ -12,11 +12,13 @@
       "gitlab": {
         "id": "gitlab",
         "name": "GitLab",
-        "CLIENT_ID": "your-client-id-a",
-        "CLIENT_SECRET": "your-secret-a",
-        "CALLBACK_URL": "http://a.localhost/oauth/callback",
-        "URL": "https://gitlab.example-a.com",
-        "URL_INTERNAL": "http://gitlab-internal-a:80",
+        "GITLAB_CLIENT_ID": "your-client-id-a",
+        "GITLAB_CLIENT_SECRET": "your-secret-a",
+        "GITLAB_CALLBACK_URL": "http://a.localhost/oauth/callback",
+        "GITLAB_URL": "https://gitlab.default.com",
+        "GITLAB_URL_INTERNAL": "http://gitlab-internal-a:80",
+        "GITLAB_TOKEN_URL_INTERNAL": "https://gitlab.default.com/oauth/token",
+        "GITLAB_USERINFO_URL_INTERNAL": "https://gitlab.default.com/api/v4/user",
         "enabled": true
       },
       "google": {
@@ -61,8 +63,11 @@
         "GITLAB_CLIENT_ID": "your-client-id-b",
         "GITLAB_CLIENT_SECRET": "your-secret-b",
         "GITLAB_CALLBACK_URL": "http://b.localhost/oauth/callback",
-        "GITLAB_URL": "https://gitlab.example-b.com",
+        "GITLAB_URL": "https://gitlab.default.com",
         "GITLAB_URL_INTERNAL": "http://gitlab-internal-b:80",
+        "GITLAB_TOKEN_URL_INTERNAL": "https://gitlab.default.com/oauth/token",
+        "GITLAB_USERINFO_URL_INTERNAL": "https://gitlab.default.com/api/v4/user",
+
         "enabled": true
       },
       "hydra": {
@@ -100,6 +105,8 @@
         "GITLAB_CALLBACK_URL": "http://localhost/oauth/callback",
         "GITLAB_URL": "https://gitlab.default.com",
         "GITLAB_URL_INTERNAL": "http://gitlab-internal-default:80",
+        "GITLAB_TOKEN_URL_INTERNAL": "https://gitlab.default.com/oauth/token",
+        "GITLAB_USERINFO_URL_INTERNAL": "https://gitlab.default.com/api/v4/user",
         "enabled": true
       },
       "hydra": {

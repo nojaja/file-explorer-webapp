@@ -28,6 +28,9 @@ export async function getGitLabToken(code, clientId, clientSecret, callbackUrl, 
       grant_type: 'authorization_code',
       redirect_uri: callbackUrl
     };
+    // 送信するリクエストパラメータを詳細にログ出力
+    console.log('[getGitLabToken] tokenEndpoint:', tokenEndpoint);
+    console.log('[getGitLabToken] requestBody:', requestBody);
 
     const response = await fetch(tokenEndpoint, {
       method: 'POST',
@@ -44,6 +47,8 @@ export async function getGitLabToken(code, clientId, clientSecret, callbackUrl, 
     }
 
     const tokenData = await response.json();
+    // 取得したトークン全体を詳細にログ出力
+    console.log('[getGitLabToken] tokenData:', tokenData);
     return tokenData;
   } catch (error) {
     console.error('[gitlabTokenHelper] トークン取得例外:', error);
@@ -67,7 +72,6 @@ export async function getGitLabUserInfo(req, accessToken) {
     console.log('[getGitLabUserInfo] gitlabConfig:', gitlabConfig);
     const gitlabInternalUrl = gitlabConfig?.GITLAB_USERINFO_URL_INTERNAL;
     const userInfoUrl = `${gitlabInternalUrl}`;
-
     const response = await fetch(userInfoUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`

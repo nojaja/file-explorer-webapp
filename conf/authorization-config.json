@@ -25,7 +25,7 @@
   "authorization": {
     "rules": [
       {
-        "email": "gitlab_admin_953f7c@example.com",
+        "email": "gitlab_admin_f6726f@example.com",
         "rootPathPermissions": {
           "main": "readonly",
           "app": "full",
