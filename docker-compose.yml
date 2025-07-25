@@ -21,6 +21,9 @@ services:
       GITLAB_OMNIBUS_CONFIG: |
         external_url 'http://gitlab.local:8929'
         gitlab_rails['omniauth_enabled'] = true
+        sidekiq['max_concurrency'] = 1
+        puma['worker_processes'] = 0
+        prometheus_monitoring['enable'] = false
     volumes:
       - ./data/gitlab/etc:/etc/gitlab
       - ./data/gitlab/log:/var/log/gitlab
@@ -28,7 +31,7 @@ services:
     ports:
       - "8929:8929"
       - "2222:22"
-    shm_size: '2gb'
+    shm_size: '256m'
   hydra:
     image: oryd/hydra:v2.2.0
     ports:
