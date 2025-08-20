@@ -1,4 +1,4 @@
-import { renderTemplate } from './handlebars-utils.js';
+import { renderTemplate} from './view.js';
 
 // --- Functional Domain Modeling 型定義 ---
 /** @typedef {string & { readonly brand: 'RootPathId' }} RootPathId */

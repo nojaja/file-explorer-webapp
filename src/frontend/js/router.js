@@ -1,4 +1,4 @@
-import { renderTemplate, renderPartialTemplate } from './view.js';
+import { renderTemplate} from './view.js';
 import { FileManager } from './file.js';
 
 /**
@@ -50,8 +50,14 @@ class Router {
       const context = await this.fetchPageData(pagename, id, options);
       console.log(`[Router.pageGen] templateName: ${templateName}, context:  `, context);
       // 4. テンプレートレンダリング・画面の描画
-      await renderTemplate(templateName, context);
-      
+      const html = await renderTemplate(templateName, context);
+      // app要素に描画
+      const appElement = document.getElementById('app');
+      if (!appElement) {
+        throw new Error('app要素が見つかりません');
+      }
+      appElement.innerHTML = html;
+
       this.currentRoute = { page: pagename, id };
       
     } catch (error) {
@@ -122,7 +128,7 @@ class Router {
       const rootPathId = this.fileManager.uiState?.selectedRootPath?.id || '';
       const apiUrl = './api/list?rootPathId=' + encodeURIComponent(rootPathId) + (path ? '&path=' + encodeURIComponent(path) : '');
       return {
-        sidebar: await renderPartialTemplate('sidebar', sidebarData),
+        sidebar: await renderTemplate('sidebar', sidebarData),
         path: path || '',
         currentPath: path || '',
         rootPathId,
@@ -154,10 +160,17 @@ class Router {
   async handleError(error) {
     try {
       const context = {
-        sidebar: await renderPartialTemplate('sidebar', {}),
+        sidebar: await renderTemplate('sidebar', {}),
         error: error.message
       };
-      await renderTemplate('main', context);
+      const html = await renderTemplate('main', context);
+      // app要素に描画
+      const appElement = document.getElementById('app');
+      if (!appElement) {
+        throw new Error('app要素が見つかりません');
+      }
+      appElement.innerHTML = html;
+
     } catch (renderError) {
       console.error('[Router] エラーレンダリング失敗:', renderError);
       // Handlebarsテンプレートでエラー表示

@@ -25,33 +25,27 @@ export class CustomHandlebarsFactory {
   registerHelpers() {
     // concat: 文字列結合ヘルパー
     this.handlebars.registerHelper('concat', function() {
-      console.log('view.js concatヘルパー');
       // 最後の引数はoptionsオブジェクト
       return Array.from(arguments).slice(0, -1).join('');
     });
     // breaklines: 改行を<br />に変換
     this.handlebars.registerHelper("breaklines", function (text) {
-      console.log('view.js breaklinesヘルパー');
       if (!text) return '';
       const ret = Handlebars.Utils.escapeExpression(text).replace(/\n/g, '<br />');
       return new Handlebars.SafeString(ret);
     });
-
     // ifEquals: 2値比較の条件分岐
     this.handlebars.registerHelper('ifEquals', function (arg1, arg2, options) {
-      console.log('view.js ifEqualsヘルパー');
       return (arg1 == arg2) ? options.fn(this) : options.inverse(this);
     });
-
-    // log: デバッグ用ログ出力
+  // log:ログ出力用ヘルパー
+  // 記載例： {{log var1 var2}}
     this.handlebars.registerHelper('log', function (arg1, arg2, options) {
       console.log('[Handlebars Helper Log]', arg1, arg2);
       return '';
     });
-
     // fetch: REST APIをコールしjsonをブロック内で参照できる非同期block helper
     this.handlebars.registerHelper('fetch', async function(apiUrl, options) {
-      console.log('view.js fetchヘルパー');
       try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -86,11 +80,11 @@ export class CustomHandlebarsFactory {
     });
   }
 
-  /**
-   * テンプレートファイルの取得（キャッシュ付き）
-   * @param {string} templateName 
-   * @returns {Promise<Function>}
-   */
+/**
+ * テンプレートファイルを取得してコンパイル
+ * @param {string} templateName - テンプレート名（拡張子なし）
+ * @returns {Promise<Function>} - コンパイル済みテンプレート関数
+ */
   async getPageTemplate(templateName) {
     if (this.templateCache.has(templateName)) {
       return this.templateCache.get(templateName);
@@ -109,7 +103,6 @@ export class CustomHandlebarsFactory {
       // キャッシュに保存
       this.templateCache.set(templateName, template);
       return template;
-      
     } catch (error) {
       console.error(`[CustomHandlebarsFactory] テンプレート取得エラー (${templateName}):`, error);
       throw error;
@@ -141,56 +134,35 @@ export class CustomHandlebarsFactory {
       throw error;
     }
   }
+
+  /**
+   * テンプレートキャッシュをクリア
+   */
+  clearTemplateCache() {
+    Object.keys(this.templateCache).forEach(key => {
+      delete this.templateCache[key];
+    });
+  }
 }
 
 // グローバルインスタンス
 const handlebarsFactory = new CustomHandlebarsFactory();
 
 /**
- * テンプレートのレンダリング
- * @param {string} templateName 
- * @param {Object} context 
- * @returns {Promise<void>}
+ * テンプレートをレンダリングしてHTML文字列を取得
+ * @param {string} templateName - テンプレート名
+ * @param {Object} context - テンプレートに渡すデータ
+ * @returns {Promise<string>} - レンダリング済みHTML文字列
  */
 export async function renderTemplate(templateName, context = {}) {
   console.log('view.js renderTemplate');
   try {
     const template = await handlebarsFactory.getPageTemplate(templateName);
-    
     // promised-handlebarsのtemplate関数は常にPromiseを返すため、awaitが必要
     const html = await template(context);
-    
-    // app要素に描画
-    const appElement = document.getElementById('app');
-    if (!appElement) {
-      throw new Error('app要素が見つかりません');
-    }
-    
-    appElement.innerHTML = html;
-    
+    return html;
   } catch (error) {
     console.error(`[renderTemplate] レンダリングエラー (${templateName}):`, error);
-    throw error;
-  }
-}
-
-/**
- * パーシャルテンプレートのレンダリング（部分描画用）
- * @param {string} templateName 
- * @param {Object} context 
- * @returns {Promise<string>}
- */
-export async function renderPartialTemplate(templateName, context = {}) {
-  try {
-    const template = await handlebarsFactory.getPageTemplate(templateName);
-    
-    // promised-handlebarsのtemplate関数は常にPromiseを返すため、awaitが必要
-    const html = await template(context);
-    
-    return html;
-    
-  } catch (error) {
-    console.error(`[renderPartialTemplate] パーシャルレンダリングエラー (${templateName}):`, error);
     throw error;
   }
 }
