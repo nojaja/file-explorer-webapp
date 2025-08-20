@@ -11,6 +11,8 @@ export class CustomHandlebarsFactory {
     this.templateCache = new Map();
     this.partialCache = new Map();
     this.init();
+    // file-cardパーシャルを初期化時に登録
+    this.registerPartialURL('file-card', './assets/file-card.tmp');
   }
 
   init() {
@@ -21,8 +23,15 @@ export class CustomHandlebarsFactory {
    * 独自ヘルパーの登録
    */
   registerHelpers() {
+    // concat: 文字列結合ヘルパー
+    this.handlebars.registerHelper('concat', function() {
+      console.log('view.js concatヘルパー');
+      // 最後の引数はoptionsオブジェクト
+      return Array.from(arguments).slice(0, -1).join('');
+    });
     // breaklines: 改行を<br />に変換
     this.handlebars.registerHelper("breaklines", function (text) {
+      console.log('view.js breaklinesヘルパー');
       if (!text) return '';
       const ret = Handlebars.Utils.escapeExpression(text).replace(/\n/g, '<br />');
       return new Handlebars.SafeString(ret);
@@ -30,6 +39,7 @@ export class CustomHandlebarsFactory {
 
     // ifEquals: 2値比較の条件分岐
     this.handlebars.registerHelper('ifEquals', function (arg1, arg2, options) {
+      console.log('view.js ifEqualsヘルパー');
       return (arg1 == arg2) ? options.fn(this) : options.inverse(this);
     });
 
@@ -37,6 +47,42 @@ export class CustomHandlebarsFactory {
     this.handlebars.registerHelper('log', function (arg1, arg2, options) {
       console.log('[Handlebars Helper Log]', arg1, arg2);
       return '';
+    });
+
+    // fetch: REST APIをコールしjsonをブロック内で参照できる非同期block helper
+    this.handlebars.registerHelper('fetch', async function(apiUrl, options) {
+      console.log('view.js fetchヘルパー');
+      try {
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+          throw new Error(`fetch helper: API取得失敗: ${response.status}`);
+        }
+        const json = await response.json();
+        // json全体をthisとして参照可能
+        return await options.fn(json);
+      } catch (error) {
+        console.error('fetch helper error:', error);
+        if (options.inverse) {
+          return await options.inverse(this);
+        }
+        return '';
+      }
+    });
+    // srcにjs式を記載し、thisを明示的に参照する形で評価する（with文は使わない）
+    this.handlebars.registerHelper('fn', function(src, options) {
+      try {
+        // thisのプロパティをローカル変数に展開し、optionsも参照可能にする
+        // 例: src = "foo + bar + options.hash.suffix"
+        const ctxKeys = Object.keys(this || {});
+        const ctxValues = ctxKeys.map(k => this[k]);
+        // optionsをローカル変数として追加
+        const fn = new Function(...ctxKeys, 'options', `return (${src});`);
+        const ret = fn(...ctxValues, options);
+        return ret;
+      } catch (e) {
+        console.error('[fn helper] 式評価エラー:', e, src,this, options);
+        return '';
+      }
     });
   }
 
@@ -107,6 +153,7 @@ const handlebarsFactory = new CustomHandlebarsFactory();
  * @returns {Promise<void>}
  */
 export async function renderTemplate(templateName, context = {}) {
+  console.log('view.js renderTemplate');
   try {
     const template = await handlebarsFactory.getPageTemplate(templateName);
     

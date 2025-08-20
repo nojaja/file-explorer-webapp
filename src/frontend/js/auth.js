@@ -5,11 +5,21 @@ import { renderTemplate } from './handlebars-utils.js';
  */
 export class AuthManager {
   constructor() {
+    // シングルトン: 既にインスタンスがあればそれを返す
+    if (AuthManager._instance) return AuthManager._instance;
     this.authConfig = null;
     this.isAuthenticated = false;
     this.currentUser = null;
+    // シングルトン登録
+    AuthManager._instance = this;
   }
-
+  /**
+   * シングルトン取得
+   * @returns {FileManager}
+   */
+  static getInstance() {
+    return AuthManager._instance || new AuthManager();
+  }
   /**
    * 認証設定の読み込み
    */

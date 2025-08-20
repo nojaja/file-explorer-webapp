@@ -25,10 +25,10 @@
   "authorization": {
     "rules": [
       {
-        "email": "gitlab_admin_f6726f@example.com",
+        "email": "gitlab_admin_c8eead@example.com",
         "rootPathPermissions": {
-          "main": "readonly",
-          "app": "full",
+          "main": "full",
+          "app": "readonly",
           "etc": "denied"
         },
         "description": "システム管理者 - ROOT_PATH毎の権限設定"

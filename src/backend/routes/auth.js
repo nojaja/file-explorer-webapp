@@ -316,7 +316,7 @@ router.get("/callback", async (req, res, next) => {
       console.log(`[auth/callback] Hydra認証成功、トップページにリダイレクト`);
       console.log(`[auth/callback] 設定されたユーザー情報:`, profileUser);
       const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-      return res.redirect(prefix);
+      return res.redirect(prefix + "/");
     } catch (error) {
       console.error(`[auth/callback] Hydra認証エラー:`, error);
       // エラーの場合、Passportのフローにフォールバック
@@ -342,7 +342,7 @@ router.get("/hydra/callback", passport.authenticate("hydra", {
   req.session.isAuthenticated = true;
   //rootPrefixをredirect先に設定
   const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-  res.redirect(prefix);
+  res.redirect(prefix + "/");
 });
 
 // ログアウト
@@ -358,7 +358,7 @@ router.get("/logout", (req, res) => {
   req.logout(() => {
     //rootPrefixをredirect先に設定
     const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-    res.redirect(prefix);
+    res.redirect(prefix + "/");
   });
 });
 

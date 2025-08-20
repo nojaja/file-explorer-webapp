@@ -19,7 +19,7 @@ services:
     hostname: 'gitlab.local'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://gitlab.local:8929'
+        external_url 'http://gitlab.localhost:8929'
         gitlab_rails['omniauth_enabled'] = true
         sidekiq['max_concurrency'] = 1
         puma['worker_processes'] = 0

@@ -7,8 +7,8 @@ import { FileManager } from './file.js';
  */
 class App {
   constructor() {
-    this.authManager = new AuthManager();
-    this.fileManager = new FileManager();
+    this.authManager = AuthManager.getInstance();
+    this.fileManager = FileManager.getInstance();
     this.init();
   }
 
@@ -118,7 +118,7 @@ class App {
 
 // アプリケーション開始
 window.addEventListener('DOMContentLoaded', () => {
-  new App();
+  window.app = new App();
 });
 
 // グローバル関数の公開（HTMLからの呼び出し用）

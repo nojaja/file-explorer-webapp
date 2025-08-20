@@ -42,5 +42,38 @@ npm test         # 単体テスト
 npm run test:e2e # E2Eテスト
 ```
 
+
+## gitlab　設定手順
 ## gitlabの初期パスワード
 /etc/gitlab/initial_root_password の中に初期パスワードがあります。
+
+## Add new application
+1. open Add new application page
+http://gitlab.localhost:8929/admin/applications/new
+
+- Name:file-explorer-webapp
+- Redirect URI:
+ - http://localhost:3000/test/auth/callback
+ - http://a.localhost:3000/test/auth/callback
+ - http://b.localhost:3000/test/auth/callback
+- Scopes
+ - read_user
+ - openid
+ - profile
+ - email
+ 
+2. Save application
+
+3. edit authorization-provider-config.json
+- Application ID -> GITLAB_CLIENT_ID
+- Secret -> GITLAB_CLIENT_SECRET
+- Callback URL -> GITLAB_CALLBACK_URL
+
+4. Continue
+
+5. get my email & edit authorization-config.json
+http://gitlab.localhost:8929/-/user_settings/profile
+Main settings > Email -> authorization.rules.email
+
+6. restart app
+docker-compose up -d --force-recreate --build app

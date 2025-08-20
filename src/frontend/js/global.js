@@ -9,8 +9,8 @@ let fileManager = null;
  */
 export function exportGlobalFunctions() {
   // インスタンスの初期化
-  if (!authManager) authManager = new AuthManager();
-  if (!fileManager) fileManager = new FileManager();
+  if (!authManager) authManager = AuthManager.getInstance();
+  if (!fileManager) fileManager = FileManager.getInstance();
 
   // ROOT_PATH選択
   window.selectRootPath = async function(rootPathId) {

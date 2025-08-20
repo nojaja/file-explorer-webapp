@@ -1,28 +1,4 @@
 {{{sidebar}}}
 <main id="main-content" style="display: none;">
-  <div class="file-card">
-    <nav id="breadcrumb"></nav>
-    <div id="file-toolbar" class="file-toolbar">
-      <button id="parent-btn" class="icon-btn" title="親フォルダへ"><span class="material-icons">arrow_upward</span></button>
-      <button id="refresh-btn" class="refresh-btn" title="リフレッシュ"><span class="material-icons">refresh</span>リフレッシュ</button>
-      <button id="upload-btn" class="upload-btn"><span class="material-icons">upload</span>アップロード</button>
-    </div>
-    <div id="error" class="error" style="display:none;"></div>
-    <table id="file-table" style="display:none;">
-      <thead>
-        <tr>
-          <th>名前</th>
-          <th>種類</th>
-          <th>サイズ</th>
-          <th>更新日時</th>
-          <th>操作</th>
-        </tr>
-      </thead>
-      <tbody id="file-list">
-      </tbody>
-    </table>
-    <input type="file" id="file-input" multiple style="display:none;" />
-    <span id="upload-hint">ここにファイルをドラッグ＆ドロップ、またはボタンで選択</span>
-    <div id="upload-progress" style="display:none;"></div>
-  </div>
+  {{>file-card}}
 </main>

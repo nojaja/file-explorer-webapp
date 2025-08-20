@@ -1,5 +1,5 @@
 import { renderTemplate, renderPartialTemplate } from './view.js';
-import { renderTemplate as renderTemplateHandlebars } from './handlebars-utils.js';
+import { FileManager } from './file.js';
 
 /**
  * SPAルーティング管理
@@ -8,6 +8,7 @@ class Router {
   constructor() {
     this.routes = new Map();
     this.currentRoute = null;
+    this.fileManager = FileManager.getInstance();
     this.init();
   }
 
@@ -47,7 +48,7 @@ class Router {
       
       // 3. データ取得（Model層の実行）
       const context = await this.fetchPageData(pagename, id, options);
-      
+      console.log(`[Router.pageGen] templateName: ${templateName}, context:  `, context);
       // 4. テンプレートレンダリング・画面の描画
       await renderTemplate(templateName, context);
       
@@ -117,10 +118,15 @@ class Router {
       // サイドバーデータを取得
       const sidebarData = await this.fetchSidebarData();
       
+      // rootPathIdはUI状態から取得
+      const rootPathId = this.fileManager.uiState?.selectedRootPath?.id || '';
+      const apiUrl = './api/list?rootPathId=' + encodeURIComponent(rootPathId) + (path ? '&path=' + encodeURIComponent(path) : '');
       return {
         sidebar: await renderPartialTemplate('sidebar', sidebarData),
         path: path || '',
-        currentPath: path || ''
+        currentPath: path || '',
+        rootPathId,
+        apiUrl
       };
     } catch (error) {
       console.error('[Router] fetchMainPageData エラー:', error);
@@ -137,7 +143,7 @@ class Router {
     return {
       authenticated: window.isAuthenticated || false,
       rootPaths: window.rootPaths || [],
-      selectedRootPath: window.uiState?.selectedRootPath || null
+      selectedRootPath: this.fileManager.uiState?.selectedRootPath || null
     };
   }
 

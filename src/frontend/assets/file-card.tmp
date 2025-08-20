@@ -1,0 +1,65 @@
+<div class="file-card">
+  <nav id="breadcrumb"></nav>
+  <div id="file-toolbar" class="file-toolbar">
+    <button id="parent-btn" class="icon-btn" title="親フォルダへ"><span class="material-icons">arrow_upward</span></button>
+    <button id="refresh-btn" class="refresh-btn" title="リフレッシュ"><span class="material-icons">refresh</span>リフレッシュ</button>
+    <button id="upload-btn" class="upload-btn"><span class="material-icons">upload</span>アップロード</button>
+  </div>
+  <div id="error" class="error" style="display:none;"></div>
+  {{#fetch apiUrl}}
+    <table id="file-table" style="display:none;">
+        <thead>
+        <tr>
+            <th>名前</th>
+            <th>種類</th>
+            <th>サイズ</th>
+            <th>更新日時</th>
+            <th>操作</th>
+        </tr>
+        </thead>
+        <tbody id="file-list">
+
+            {{#each files}}
+            <tr>
+            <td>
+                {{#ifEquals type 'dir'}}
+                <span class="material-icons" style="vertical-align:middle;color:#ffa000;">folder</span>
+                <span style='cursor:pointer;color:#1976d2;text-decoration:underline;' onclick='changeDir("{{path}}")'>{{name}}</span>
+                {{else}}
+                <span class="material-icons" style="vertical-align:middle;color:#1976d2;">insert_drive_file</span>
+                {{name}}
+                {{/ifEquals}}
+            </td>
+            <td>{{#ifEquals type 'dir'}}フォルダ{{else}}ファイル{{/ifEquals}}</td>
+            <td>{{size}}</td>
+            <td>{{mtime}}</td>
+            <td class="actions">
+                {{#ifEquals type 'dir'}}
+                <a class="icon-btn" title="zipダウンロード" href="{{fn '"./api/download/folder?rootPathId=" + encodeURIComponent(options.data.root.rootPathId) + (path ? "&path=" + encodeURIComponent(path) : "")'}}" download>
+                    <span class="material-icons">archive</span>
+                </a>
+                {{else}}
+                <a class="download-link icon-btn" title="ダウンロード" href="{{fn '"./api/download/file?rootPathId=" + encodeURIComponent(options.data.root.rootPathId) + (path ? "&path=" + encodeURIComponent(path) : "")'}}" download>
+                    <span class="material-icons">download</span>
+                </a>
+                {{/ifEquals}}
+                {{#if @root.canDelete}}
+                <button class="icon-btn" title="削除" onclick="deleteFile('{{path}}')"><span class="material-icons">delete</span></button>
+                {{/if}}
+                <button class="icon-btn" title="名前変更（ファイル/フォルダ）" onclick="startRenameFile('{{path}}', '{{name}}')">
+                <span class="material-icons">edit</span>
+                </button>
+            </td>
+            </tr>
+            {{/each}}
+
+        </tbody>
+    </table>
+  {{else}}
+    <div class="api-test-error">API取得に失敗しました</div>
+  {{/fetch}}
+
+  <input type="file" id="file-input" multiple style="display:none;" />
+  <span id="upload-hint">ここにファイルをドラッグ＆ドロップ、またはボタンで選択</span>
+  <div id="upload-progress" style="display:none;"></div>
+</div>

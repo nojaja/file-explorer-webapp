@@ -55,6 +55,8 @@ function createRelPath(path) {
  */
 export class FileManager {
   constructor() {
+    // シングルトン: 既にインスタンスがあればそれを返す
+    if (FileManager._instance) return FileManager._instance;
     // --- UI状態の初期化 ---
     /** @type {UIState} */
     this.uiState = {
@@ -66,10 +68,17 @@ export class FileManager {
     
     this.rootPaths = []; // 利用可能なROOT_PATH一覧
     
-    // グローバル変数との互換性
-    window.uiState = this.uiState;
     window.rootPaths = this.rootPaths;
     window.fileManager = this;
+    // シングルトン登録
+    FileManager._instance = this;
+  }
+  /**
+   * シングルトン取得
+   * @returns {FileManager}
+   */
+  static getInstance() {
+    return FileManager._instance || new FileManager();
   }
 
   /**
@@ -116,7 +125,6 @@ export class FileManager {
       if (this.rootPaths.length > 0 && !this.uiState.selectedRootPath) {
         const defaultRootPath = data.defaultRootPath || this.rootPaths[0];
         this.uiState.selectedRootPath = defaultRootPath;
-        window.uiState.selectedRootPath = defaultRootPath;
       }
       
       console.log('[FileManager] ROOT_PATH一覧取得完了:', this.rootPaths);
@@ -148,7 +156,6 @@ export class FileManager {
       
       const data = await res.json();
       this.uiState.selectedRootPath = data.selectedRootPath;
-      window.uiState.selectedRootPath = data.selectedRootPath;
       
       // ROOT_PATHデータの状態保持
       if (!this.uiState.rootPaths || this.uiState.rootPaths.length === 0) {
@@ -163,7 +170,6 @@ export class FileManager {
       
       // 権限を取得し直す
       this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
-      window.uiState.userPermissions = this.uiState.userPermissions;
       this.updateUploadAreaVisibility();
       
       console.log('[FileManager] ROOT_PATH選択完了:', this.uiState.selectedRootPath);
@@ -177,7 +183,6 @@ export class FileManager {
       
       // ファイル一覧を再取得（ルートディレクトリから）
       this.uiState.currentPath = '';
-      window.uiState.currentPath = '';
       await this.fetchFiles('');
       
     } catch (e) {
@@ -219,12 +224,9 @@ export class FileManager {
       const data = await res.json();
       
       this.uiState.currentPath = path;
-      window.uiState.currentPath = path;
-      
       // 権限を取得し直す
       if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
         this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
-        window.uiState.userPermissions = this.uiState.userPermissions;
         this.updateUploadAreaVisibility();
       }
       
@@ -254,48 +256,31 @@ export class FileManager {
    * @param {Array} files 
    */
   async renderFiles(files) {
-    const fileList = document.getElementById('file-list');
-    if (!fileList) return;
-    
-    // テンプレート用のデータを準備
-    const templateData = files.map(f => {
-      const isDir = f.type === 'dir';
+    // file-card全体を再レンダリング（fetch block helperも含めて）
+    const appElement = document.getElementById('main-content');
+    if (!appElement) return;
 
-      // 削除ボタンの表示制御
-      const canDelete = this.uiState.userPermissions?.canDelete ?? true;
-      const deleteButton = canDelete 
-        ? `<button class="icon-btn" title="削除" onclick="deleteFile('${f.path}')"><span class="material-icons">delete</span></button>`
-        : '';
-      // リネームボタン（ファイル・フォルダ両方に表示）
-      const renameButton = `<button class="icon-btn" title="名前変更" onclick="startRenameFile('${f.path}','${f.name}')"><span class="material-icons">edit</span></button>`;
-      // ダウンロードURL生成（ROOT_PATHを考慮）
-      const rootPathParam = this.uiState.selectedRootPath && this.uiState.selectedRootPath.id ? `&rootPathId=${this.uiState.selectedRootPath.id}` : '';
-      const downloadFileUrl = `./api/download/file?path=${encodeURIComponent(f.path)}${rootPathParam}`;
-      const downloadFolderUrl = `./api/download/folder?path=${encodeURIComponent(f.path)}${rootPathParam}`;
-
-      return {
-        name: f.name,
-        path: f.path,
-        isDir,
-        size: f.size ?? '',
-        mtime: f.mtime ?? '',
-        downloadFileUrl,
-        downloadFolderUrl,
-        deleteButton,
-        renameButton
-      };
-    });
-    
+    // contextにrootPathId, path, apiUrlを渡す
+    const rootPathId = this.uiState.selectedRootPath?.id || '';
+    const path = this.uiState.currentPath || '';
+    const apiUrl = './api/list?rootPathId=' + encodeURIComponent(rootPathId) + (path ? '&path=' + encodeURIComponent(path) : '');
+    // 削除ボタンの表示制御
+    const canDelete = this.uiState.userPermissions?.canDelete ?? true;
     try {
-      const html = await renderTemplate('file-row', { files: templateData });
-      fileList.innerHTML = html;
+      const html = await renderTemplate('file-card', { rootPathId, path, apiUrl, canDelete });
+      appElement.innerHTML = html;
     } catch (error) {
-      console.error('ファイル一覧テンプレートレンダリングエラー:', error);
-      const html = await renderTemplate('error', { message: 'ファイル一覧の表示でエラーが発生しました' });
-      fileList.innerHTML = `<tr><td colspan="5">${html}</td></tr>`;
+      console.error('file-cardテンプレートレンダリングエラー:', error);
+      appElement.innerHTML = `<div class="error">ファイル一覧の表示でエラーが発生しました</div>`;
     }
 
     this.updateFileToolbar();
+
+    // ファイルアップロード関連イベントの再バインド（Appインスタンス経由）
+    if (window.app && typeof window.app.setupEventListeners === 'function') {
+      window.app.setupEventListeners();
+    }
+
 
     // リネーム編集モードの初期化
     window.startRenameFile = (path, name) => {
@@ -303,6 +288,7 @@ export class FileManager {
       if (!row) return;
       const nameCell = row.querySelector('td');
       if (!nameCell) return;
+      const oldNameHtml = nameCell.innerHTML;
       // 編集input生成
       nameCell.innerHTML = `<input type="text" value="${name}" class="rename-input" style="width:70%">`
         + `<button class='icon-btn' title='確定' onclick='confirmRenameFile("${path}")'><span class='material-icons'>check</span></button>`
@@ -316,13 +302,13 @@ export class FileManager {
           if (e.key === 'Escape') window.cancelRenameFile();
         };
       }, 10);
-      window._renameTarget = { path, row, nameCell, oldName: name };
+      window._renameTarget = { path, row, nameCell, oldName: name, oldNameHtml};
     };
 
     window.cancelRenameFile = () => {
       if (!window._renameTarget) return;
-      const { nameCell, oldName } = window._renameTarget;
-      nameCell.innerHTML = oldName;
+      const { nameCell, oldName, oldNameHtml} = window._renameTarget;
+      nameCell.innerHTML = oldNameHtml;
       window._renameTarget = null;
     };
 
@@ -497,12 +483,10 @@ export class FileManager {
       const data = await res.json();
       
       this.uiState.currentPath = path;
-      window.uiState.currentPath = path;
       
       // 権限を取得し直す
       if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
         this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
-        window.uiState.userPermissions = this.uiState.userPermissions;
         this.updateUploadAreaVisibility();
       }
       
@@ -564,7 +548,7 @@ export class FileManager {
         }
       }
     } catch (error) {
-      console.error('[FileManager] deleteFile エラー:', error);
+      console.error('[FileManager.deleteFile] deleteFile エラー:', error);
       const errorDiv = document.getElementById('error');
       if (errorDiv) {
         errorDiv.textContent = '削除処理でエラーが発生しました';
