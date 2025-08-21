@@ -62,28 +62,27 @@ global.authConfig = {};// authList: 各プロバイダーの有効/無効フラ�
 try {
   if (providerConfig.providers && typeof providerConfig.providers === 'object') {
     for (const fqdn of Object.keys(providerConfig.providers)) {
-      // 有効なプロバイダー一覧
-      // providerConfig.providers[fqdn]の中からenabledなプロバイダーのみ抽出し、{ [PROVIDER]: { ... } }形式にする
-      const enabledProviders = {};
-      for (const [providerName, providerObj] of Object.entries(providerConfig.providers[fqdn] || {})) {
-        if (providerObj && providerObj.enabled) {
-          enabledProviders[providerName] = providerObj;
-        }
-      }
-      console.log(`[認証プロバイダー設定] FQDN: ${fqdn}, 有効プロバイダー数: ${Object.keys(enabledProviders).length}`, enabledProviders);
-      global.authList[fqdn] = {noAuthRequired: false};
-      global.authConfig[fqdn] = {};
-      for (const providerName of Object.keys(enabledProviders)) {
-        const provConfig = enabledProviders[providerName];
-        global.authList[fqdn][providerName] = !!provConfig.enabled;
-        global.authConfig[fqdn][providerName] = { ...provConfig };
-      }
-      // noAuthRequired: どのプロバイダーも有効でなければtrue
-      global.authList[fqdn].noAuthRequired = enabledProviders.length === 0;
+      _processProviderConfigForFqdn(fqdn, providerConfig.providers[fqdn]);
     }
   }
 } catch (error) {
   console.error('[認証プロバイダー設定] 読み込みエラー:', error);
+}
+
+function _processProviderConfigForFqdn(fqdn, providersObj) {
+  const enabledProviders = {};
+  for (const [providerName, providerObj] of Object.entries(providersObj || {})) {
+    if (providerObj && providerObj.enabled) enabledProviders[providerName] = providerObj;
+  }
+  console.log(`[認証プロバイダー設定] FQDN: ${fqdn}, 有効プロバイダー数: ${Object.keys(enabledProviders).length}`, enabledProviders);
+  global.authList[fqdn] = { noAuthRequired: false };
+  global.authConfig[fqdn] = {};
+  for (const providerName of Object.keys(enabledProviders)) {
+    const provConfig = enabledProviders[providerName];
+    global.authList[fqdn][providerName] = !!provConfig.enabled;
+    global.authConfig[fqdn][providerName] = { ...provConfig };
+  }
+  global.authList[fqdn].noAuthRequired = Object.keys(enabledProviders).length === 0;
 }
 
 console.log('[認証設定]', global.authList, global.authConfig, global.config);
@@ -207,98 +206,61 @@ app.get(`${rootPrefix}login`, (req, res) => {
 app.post(`${rootPrefix}login`, express.urlencoded({ extended: false }), async (req, res) => {
   console.log("[アクセス] /login POST 受信", req.body);
   const { login_challenge, username, email } = req.body;
-    // 入力値検証
-  if (!login_challenge || !username || !email) {
-    try {
-      const html = renderTemplate('error', {
-        title: '入力エラー',
-        message: 'ユーザー名とメールアドレスは必須項目です。',
-        backLink: `/login?login_challenge=${login_challenge}`
-      });
-      return res.status(400).send(html);
-    } catch (err) {
-      console.error('[テンプレートエラー]', err);
-      return res.status(500).send('テンプレートエラーが発生しました');
-    }
-  }
-    // Email形式検証
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    try {
-      const html = renderTemplate('error', {
-        title: 'メールアドレスエラー',
-        message: '有効なメールアドレス形式で入力してください。',
-        backLink: `/login?login_challenge=${login_challenge}`
-      });
-      return res.status(400).send(html);
-    } catch (err) {
-      console.error('[テンプレートエラー]', err);
-      return res.status(500).send('テンプレートエラーが発生しました');
-    }
-  }
-    try {
-    // デフォルトのテストユーザーの場合、emailが空の可能性があるので補完
-    let finalEmail = email;
-    if (!email && username === 'testuser') {
-      finalEmail = 'testuser@example.com';
-      console.log('[ログイン処理] testユーザーにデフォルトemailを設定:', finalEmail);
-    } else if (!email) {
-      finalEmail = `${username}@example.com`;
-      console.log('[ログイン処理] ユーザーにデフォルトemailを設定:', finalEmail);
-    }
-    
-    // ユーザーサービスでユーザー登録/ログイン処理
-    const loginResult = loginUser(username, finalEmail);
-    console.log("[ユーザーログイン結果]", loginResult);
-      // Email認可チェック
-    if (!loginResult.isAuthorized) {
-      try {
-        const html = renderTemplate('error', {
-          title: 'アクセス拒否',
-          message: `申し訳ございません。お使いのメールアドレス「${email}」はこのシステムにアクセスする権限がありません。\nアクセス許可が必要な場合は、システム管理者にお問い合わせください。`,
-          backLink: `/login?login_challenge=${login_challenge}`
-        });
-        return res.status(403).send(html);
-      } catch (error) {
-        console.error("[login] エラーテンプレートレンダリングエラー:", error);
-        return res.status(403).send("アクセス権限がありません");
-      }
-    }
-    
-    // ユーザー情報をセッションに保存
-    if (!req.session.users) {
-      req.session.users = {};
-    }
-    req.session.users[username] = loginResult.user;
-    
-    // hydraTokenHelperを使用してログイン処理を実行
-    // ユーザー名とemail情報を含めてsubjectとして渡す
-    const subject = JSON.stringify({ 
-      username: loginResult.user.username, 
-      email: loginResult.user.email,
-      userId: loginResult.user.id
-    });
+
+  // 入力検証
+  const invalid = _validateLoginInput(login_challenge, username);
+  if (invalid) return _renderError(res, { title: '入力エラー', message: invalid.message, backLink: `/login?login_challenge=${login_challenge}`, status: invalid.status });
+
+  // Email 正規化
+  const finalEmail = _computeFinalEmail(username, email);
+
+  try {
+    const result = _processLogin(username, finalEmail, req);
+  if (!result.isAuthorized) return _renderError(res, { title: 'アクセス拒否', message: `申し訳ございません。お使いのメールアドレス「${finalEmail}」はこのシステムにアクセスする権限がありません。`, backLink: `/login?login_challenge=${login_challenge}`, status: 403 });
+
+    // セッションに保存
+    req.session.users = req.session.users || {};
+    req.session.users[username] = result.user;
+
+    // Hydra による accept
+    const subject = JSON.stringify({ username: result.user.username, email: result.user.email, userId: result.user.id });
     const acceptData = await acceptLoginChallenge(req, login_challenge, subject);
-    
     console.log("[hydra login accept] 成功:", acceptData);
     if (acceptData.redirect_to) return res.redirect(acceptData.redirect_to);
-    
-    // エラー詳細も表示
-    return res.status(500).send(`hydra login accept失敗: ${JSON.stringify(acceptData)}`);  } catch (err) {
+    return res.status(500).send(`hydra login accept失敗: ${JSON.stringify(acceptData)}`);
+  } catch (err) {
     console.error("[hydra login accept] 例外発生:", err);
-    try {
-      const html = renderTemplate('error', {
-        title: '認証エラー',
-        message: `認証処理中にエラーが発生しました: ${err.message}`,
-        backLink: `/login?login_challenge=${login_challenge}`
-      });
-      return res.status(500).send(html);
-    } catch (error) {
-      console.error("[login] エラーテンプレートレンダリングエラー:", error);
-      return res.status(500).send("認証処理でエラーが発生しました");
-    }
+  return _renderError(res, { title: '認証エラー', message: `認証処理中にエラーが発生しました: ${err.message}`, backLink: `/login?login_challenge=${login_challenge}`, status: 500 });
   }
 });
+
+// --- helpers for login ---
+function _validateLoginInput(login_challenge, username) {
+  if (!login_challenge || !username) return { message: 'ユーザー名とlogin_challengeは必須項目です。', status: 400 };
+  return null;
+}
+
+function _computeFinalEmail(username, email) {
+  if (email) return email;
+  if (username === 'testuser') return 'testuser@example.com';
+  return `${username}@example.com`;
+}
+
+function _processLogin(username, finalEmail) {
+  const loginResult = loginUser(username, finalEmail);
+  console.log("[ユーザーログイン結果]", loginResult);
+  return loginResult;
+}
+
+function _renderError(res, { title, message, backLink = null, status = 500 }) {
+  try {
+    const html = renderTemplate('error', { title, message, backLink });
+    return res.status(status).send(html);
+  } catch (err) {
+    console.error('[テンプレートエラー]', err);
+    return res.status(status).send(message);
+  }
+}
 
 app.get(`${rootPrefix}consent`, async (req, res) => {
   const { consent_challenge } = req.query;

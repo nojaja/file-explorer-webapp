@@ -35,46 +35,55 @@ function createAbsPath(ROOT_PATH, relPath) {
 
 export async function deleteFile(req, res) {
   try {
-    const relPath = req.query.path;
-    const rootPathId = req.query.rootPathId || req.session?.selectedRootPathId;
-    
+    const { relPath, targetRootPathId } = _resolveDeleteParams(req);
     if (!relPath) return res.status(400).json({ error: "path必須" });
-    
-    // ROOT_PATH IDが指定されていない場合はデフォルトを使用
-    let targetRootPathId = rootPathId;
-    if (!targetRootPathId) {
-      const defaultRootPath = getDefaultRootPath();
-      targetRootPathId = defaultRootPath ? defaultRootPath.id : null;
-    }
-    
+
     if (!targetRootPathId) {
       return res.status(400).json({ error: "ROOT_PATHが設定されていません。" });
     }
-    
+
     // ROOT_PATH IDから実際のパスを取得
     const ROOT_PATH = getRootPathById(targetRootPathId);
     if (!ROOT_PATH) {
       return res.status(400).json({ error: `ROOT_PATH ID '${targetRootPathId}' が見つかりません。` });
     }
-    
+
     console.log(`[DeleteService] ROOT_PATH: ${ROOT_PATH}, rootPathId: ${targetRootPathId}, relPath: ${relPath}`);
-    
+
     const absPathResult = createAbsPath(ROOT_PATH, relPath);
     if (!absPathResult.ok) {
       return res.status(403).json({ error: absPathResult.error.message });
     }
     const absPath = absPathResult.value;
-    
-    if (!fsSync.existsSync(absPath)) return res.status(404).json({ error: "対象が存在しません" });
-    //フォルダかどうかをチェック
-    if (fsSync.lstatSync(absPath).isDirectory()) {
-      await fs.rm(absPath, { recursive: true, force: true });
-    } else {
-      await fs.unlink(absPath);
-    }
-    res.json({ success: true });
+
+    if (!_exists(absPath)) return res.status(404).json({ error: "対象が存在しません" });
+    await _removePath(absPath);
+    return res.json({ success: true });
   } catch (error) {
     console.error("ファイル削除中にエラー:", error);
     return res.status(500).json({ error: "ファイル削除中にエラーが発生しました。" });
+  }
+}
+
+function _resolveDeleteParams(req) {
+  const relPath = req.query.path;
+  const rootPathId = req.query.rootPathId || req.session?.selectedRootPathId;
+  let targetRootPathId = rootPathId;
+  if (!targetRootPathId) {// ROOT_PATH IDが指定されていない場合はデフォルトを使用
+    const defaultRootPath = getDefaultRootPath();
+    targetRootPathId = defaultRootPath ? defaultRootPath.id : null;
+  }
+  return { relPath, targetRootPathId };
+}
+
+function _exists(p) {
+  return fsSync.existsSync(p);
+}
+
+async function _removePath(p) {
+  if (fsSync.lstatSync(p).isDirectory()) {
+    await fs.rm(p, { recursive: true, force: true });
+  } else {
+    await fs.unlink(p);
   }
 }

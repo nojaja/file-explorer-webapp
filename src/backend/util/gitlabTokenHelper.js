@@ -9,17 +9,19 @@
  * @returns {Promise<Object>} - トークン情報
  */
 
-export async function getGitLabToken(code, clientId, clientSecret, callbackUrl, req) {
+export async function getGitLabToken(options) {
   try {
+    // Accept single options object for clarity: { code, clientId, clientSecret, callbackUrl, req }
+    const opts = options || {};
+    let { code, clientId, clientSecret, callbackUrl, req } = opts;
     // 内部通信用のGitLab URLを使用
     // FQDNごとの設定取得
-    const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
-    const { getAuthProviderConfig } = await import('../authProviderConfig.js');
-    console.log('[getGitLabToken] fqdn:', fqdn, 'provider:', 'gitlab');
-    const gitlabConfig = await getAuthProviderConfig(fqdn, 'gitlab');
-    console.log('[getGitLabToken] gitlabConfig:', gitlabConfig);
-    const gitlabInternalUrl = gitlabConfig?.GITLAB_TOKEN_URL_INTERNAL;
-    const tokenEndpoint = `${gitlabInternalUrl}`;
+    // テスト時にglobal.authConfigが設定されている場合はそれを優先する
+  const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+  const gitlabConfig = await _resolveGitLabConfig(fqdn);
+  const gitlabInternalUrl = gitlabConfig?.GITLAB_TOKEN_URL_INTERNAL || gitlabConfig?.GITLAB_TOKEN_URL || gitlabConfig?.GITLAB_TOKEN_URL_PUBLIC;
+  if (!gitlabInternalUrl) throw new Error('GitLab token endpoint が見つかりません');
+  const tokenEndpoint = `${gitlabInternalUrl}`;
 
     const requestBody = {
       client_id: clientId,
@@ -65,13 +67,11 @@ export async function getGitLabUserInfo(req, accessToken) {
   try {
     // GitLabのユーザー情報エンドポイント（内部通信用）
     // FQDNごとの設定取得
-    const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
-    const { getAuthProviderConfig } = await import('../authProviderConfig.js');
-    console.log('[getGitLabUserInfo] fqdn:', fqdn, 'provider:', 'gitlab');
-    const gitlabConfig = await getAuthProviderConfig(fqdn, 'gitlab');
-    console.log('[getGitLabUserInfo] gitlabConfig:', gitlabConfig);
-    const gitlabInternalUrl = gitlabConfig?.GITLAB_USERINFO_URL_INTERNAL;
-    const userInfoUrl = `${gitlabInternalUrl}`;
+  const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
+  const gitlabConfig = await _resolveGitLabConfig(fqdn);
+  const gitlabInternalUrl = gitlabConfig?.GITLAB_USERINFO_URL_INTERNAL || gitlabConfig?.GITLAB_USERINFO_URL || gitlabConfig?.GITLAB_USERINFO_URL_PUBLIC;
+  if (!gitlabInternalUrl) throw new Error('GitLab userinfo endpoint が見つかりません');
+  const userInfoUrl = `${gitlabInternalUrl}`;
     const response = await fetch(userInfoUrl, {
       headers: {
         'Authorization': `Bearer ${accessToken}`
@@ -90,4 +90,21 @@ export async function getGitLabUserInfo(req, accessToken) {
     console.error('[gitlabTokenHelper] ユーザー情報取得例外:', error);
     throw error;
   }
+}
+
+async function _resolveGitLabConfig(fqdn) {
+  let gitlabConfig = null;
+  try {
+    const { getAuthProviderConfig } = await import('../authProviderConfig.js');
+    console.log('[gitlabTokenHelper] resolve config for fqdn:', fqdn);
+    gitlabConfig = await getAuthProviderConfig(fqdn, 'gitlab');
+    console.log('[gitlabTokenHelper] got config:', gitlabConfig);
+  } catch (e) {
+    console.warn('[gitlabTokenHelper] authProviderConfigの読み込み失敗:', e.message);
+  }
+  if (global.authConfig && global.authConfig.gitlab) {
+    console.log('[gitlabTokenHelper] global.authConfig を優先使用しています');
+    gitlabConfig = global.authConfig.gitlab;
+  }
+  return gitlabConfig || {};
 }

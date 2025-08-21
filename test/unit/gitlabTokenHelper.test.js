@@ -55,7 +55,7 @@ describe('gitlabTokenHelper', () => {
         json: async () => mockToken
       });
       const dummyReq = { headers: { host: 'gitlab.example.com' } };
-      const result = await getGitLabToken(code, clientId, clientSecret, callbackUrl, dummyReq);
+  const result = await getGitLabToken({ code, clientId, clientSecret, callbackUrl, req: dummyReq });
       expect(result).toEqual(mockToken);
       expect(mockFetch).toHaveBeenCalledWith(GITLAB_TOKEN_URL_INTERNAL, expect.objectContaining({ method: 'POST' }));
     });
@@ -67,13 +67,13 @@ describe('gitlabTokenHelper', () => {
         text: async () => 'Bad Request'
       });
       const dummyReq = { headers: { host: 'gitlab.example.com' } };
-      await expect(getGitLabToken(code, clientId, clientSecret, callbackUrl, dummyReq)).rejects.toThrow(/トークン取得失敗/);
+  await expect(getGitLabToken({ code, clientId, clientSecret, callbackUrl, req: dummyReq })).rejects.toThrow(/トークン取得失敗/);
     });
 
     it('異常系: fetch例外', async () => {
       mockFetch.mockRejectedValueOnce(new Error('network error'));
       const dummyReq = { headers: { host: 'gitlab.example.com' } };
-      await expect(getGitLabToken(code, clientId, clientSecret, callbackUrl, dummyReq)).rejects.toThrow('network error');
+  await expect(getGitLabToken({ code, clientId, clientSecret, callbackUrl, req: dummyReq })).rejects.toThrow('network error');
     });
   });
 

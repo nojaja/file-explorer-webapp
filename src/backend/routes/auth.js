@@ -12,6 +12,42 @@ import * as sourceMapSupport from 'source-map-support'
 sourceMapSupport.install();
 const router = express.Router();
 
+// ユーザー情報正規化ヘルパー群（モジュールスコープに移動して route 内の複雑度を下げる）
+function _normalizeHydra(u) {
+  // u is expected to have .profile
+  return {
+    email: u.profile.email || null,
+    username: u.profile.preferred_username || u.profile.name || null,
+    displayName: u.profile.name || u.profile.preferred_username || null,
+    avatar: u.profile.picture || null
+  };
+}
+
+function _normalizeGitLabJson(u) {
+  return {
+    email: u._json.email || null,
+    username: u._json.username || null,
+    displayName: u._json.name || u._json.username || null,
+    avatar: u._json.avatar_url || null
+  };
+}
+
+function _normalizeGeneric(u) {
+  return {
+    email: u.email || null,
+    username: u.username || u.name || null,
+    displayName: u.name || u.username || null,
+    avatar: u.avatar_url || null
+  };
+}
+
+function normalizeUser(u) {
+  if (!u) return { email: null, username: null, displayName: null, avatar: null };
+  if (u.profile) return _normalizeHydra(u);
+  if (u._json) return _normalizeGitLabJson(u);
+  return _normalizeGeneric(u);
+}
+
 // Github認証開始
 router.get("/github", (req, res, next) => {
   if (!req.session) {
@@ -123,6 +159,8 @@ router.get("/hydra", (req, res, next) => {
     state: true,// CSRF保護を有効化
     passReqToCallback: true, // reqオブジェクトをコールバックに渡す
     userProfileURL: hydraConfig.HYDRA_USERINFO_URL_INTERNAL // ユーザー情報取得エンドポイント
+  // このコールバックは外部ライブラリが要求する署名のため max-params を許容する
+  /* eslint-disable-next-line max-params */
   }, async (req, accessToken, refreshToken, profile, done) => {
     // ユーザー情報をuserinfoエンドポイントから手動取得（profileが空の場合の対策）
     if (!profile || !profile.email) {
@@ -205,128 +243,63 @@ router.get("/consent", async (req, res) => {
 
 // OAUTHコールバック
 router.get("/callback", async (req, res, next) => {
+  try {
+    const handled = await _processOAuthCallback(req, res);
+    if (!handled) return next();
+    return undefined;
+  } catch (err) {
+    return next(err);
+  }
+});
+
+// delegate 実装: 実際の処理を別関数に移動して callback の複雑度を下げる
+async function _processOAuthCallback(req, res) {
   console.log(`[auth/callback] コールバック受信`);
   console.log(`[auth/callback] セッションID: ${req.session?.id}`);
   console.log(`[auth/callback] クエリパラメータ:`, req.query);
   console.log(`[auth/callback] OAuth2States:`, req.session?.oauth2States);
-    // 認可コードの確認
   const code = req.query.code;
   const state = req.query.state;
   const isGitLabCallback = req.session?.gitlabUrls && code;
   const isHydraCallback = code && !isGitLabCallback; // GitLabでなければHydraと判断
 
-  // GitLab認証の場合、FQDNごとの設定を利用
-  if (isGitLabCallback) {
-    try {
-      console.log(`[auth/callback] GitLab認証コード検出: ${code.substring(0, 10)}...`);
-      // FQDNからGitLab認証設定を取得（セッション優先、なければFQDNから再取得）
-      const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
-      let gitlabConfig = req.session.gitlabAuthConfig;
-      if (!gitlabConfig) {
-        gitlabConfig = getAuthProviderConfig(fqdn, 'gitlab');
-      }
-      if (!gitlabConfig) {
-        console.error(`[auth/callback] FQDN=${fqdn} のGitLab認証設定が見つかりません`);
-        const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-        return res.redirect(prefix + "/?error=gitlab_config");
-      }
-      // GitLabトークンを取得
-      const tokenData = await getGitLabToken(
-        code,
-        gitlabConfig.GITLAB_CLIENT_ID,
-        gitlabConfig.GITLAB_CLIENT_SECRET,
-        gitlabConfig.GITLAB_CALLBACK_URL,
-        req
-      );
-      // 取得したaccess_tokenの先頭10文字をログ出力
-      console.log(`[auth/callback] 取得access_token: ${tokenData.access_token ? tokenData.access_token.substring(0, 10) + '...' : 'undefined'}`);
-      console.log(tokenData.access_token);
-      // GitLabユーザー情報を取得
-      const userData = await getGitLabUserInfo(req,tokenData.access_token);
-      console.log(`[auth/callback] GitLabユーザー情報取得成功: ${userData.name}`);
-      
-      // セッションにユーザー情報を保存
-      req.session.user = userData;
-      req.session.accessToken = tokenData.access_token;
-      req.session.isAuthenticated = true;
-      
-      // ログイン後のリダイレクト
-      console.log(`[auth/callback] GitLab認証成功、トップページにリダイレクト`);
-      const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-      return res.redirect(prefix + "/");
-    } catch (error) {
-      console.error(`[auth/callback] GitLab認証エラー:`, error);
-      const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-      return res.redirect(prefix+"/?error=gitlab_auth");
-    }
-  }
-  // Hydraコールバックで認可コードがある場合、手動でトークン取得を試みる
-  else if (isHydraCallback) {
-    try {
-      console.log(`[auth/callback] Hydra認証コード検出: ${code.substring(0, 10)}...`);
-      
-      // stateパラメータの存在確認
-      if (state) {
-        console.log(`[auth/callback] stateパラメータ: ${state}`);
-      } else {
-        console.warn(`[auth/callback] stateパラメータがありません`);
-      }
-      // FQDNからHydra認証設定を取得（セッション優先、なければFQDNから再取得）
-      const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
-      let hydraConfig = req.session.hydraAuthConfig;
-      if (!hydraConfig) {
-        hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
-      }
-      if (!hydraConfig) {
-        console.error(`[auth/callback] FQDN=${fqdn} のHydra認証設定が見つかりません`);
-        const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-        return res.redirect(prefix+"/?error=hydra_config");
-      }
-      // Hydraトークンを手動取得
-      const tokenData = await getHydraToken(
-        req,
-        code,
-        hydraConfig.HYDRA_CLIENT_ID,
-        hydraConfig.HYDRA_CLIENT_SECRET,
-        hydraConfig.HYDRA_CALLBACK_URL,
-        state
-      );
-      // ユーザー情報を取得
-      const userData = await getHydraUserInfo(tokenData.access_token);
-      console.log(`[auth/callback] Hydraユーザー情報取得成功:`, userData);
-      
-      // Passportスタイルのユーザーオブジェクトを作成
-      const profileUser = {
-        profile: userData,
-        accessToken: tokenData.access_token,
-        refreshToken: tokenData.refresh_token,
-        idToken: tokenData.id_token
-      };
-      // セッションにユーザー情報・設定を保存
-      req.session.user = profileUser;
-      req.session.accessToken = tokenData.access_token;
-      req.session.refreshToken = tokenData.refresh_token;
-      req.session.idToken = tokenData.id_token;
-      req.session.isAuthenticated = true;
-      req.session.hydraAuthConfig = hydraConfig;
-      // req.userにも設定（Passportとの互換性）
-      req.user = profileUser;
-      
-      // ログイン後のリダイレクト
-      console.log(`[auth/callback] Hydra認証成功、トップページにリダイレクト`);
-      console.log(`[auth/callback] 設定されたユーザー情報:`, profileUser);
-      const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
-      return res.redirect(prefix + "/");
-    } catch (error) {
-      console.error(`[auth/callback] Hydra認証エラー:`, error);
-      // エラーの場合、Passportのフローにフォールバック
-      console.log(`[auth/callback] Passport認証にフォールバック`);
-    }
-  }
+  if (isGitLabCallback) return await _processGitLabCallback(req, res, code);
+  if (isHydraCallback) return await _processHydraCallback(req, res, code, state);
+  return false;
+}
 
-  // 通常のPassport認証フローにフォールバック
-  next();
-});
+// helper: GitLab callback 専用ラッパー
+async function _processGitLabCallback(req, res, code) {
+  try {
+    const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+    let gitlabConfig = req.session.gitlabAuthConfig;
+    if (!gitlabConfig) gitlabConfig = getAuthProviderConfig(fqdn, 'gitlab');
+    if (!gitlabConfig) {
+      console.error(`[auth/callback] FQDN=${fqdn} のGitLab認証設定が見つかりません`);
+      const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
+      res.redirect(prefix + "/?error=gitlab_config");
+      return true;
+    }
+    const handled = await _handleGitLabCallback(req, res, code, gitlabConfig);
+    return !!handled;
+  } catch (error) {
+    console.error(`[auth/callback] GitLab認証エラー:`, error);
+    const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
+    res.redirect(prefix +"/?error=gitlab_auth");
+    return true;
+  }
+}
+
+// helper: Hydra callback 専用ラッパー
+async function _processHydraCallback(req, res, code, state) {
+  try {
+    const handled = await _handleHydraCallback(req, res, code, state);
+    return !!handled;
+  } catch (e) {
+    console.error('[auth/_processHydraCallback] エラー:', e);
+    return false;
+  }
+}
 
 // Hydra認証コールバック専用
 router.get("/hydra/callback", passport.authenticate("hydra", {
@@ -364,96 +337,44 @@ router.get("/logout", (req, res) => {
 
 // ログイン状態確認API
 router.get("/status", (req, res) => {
-
   const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
-  console.log(fqdn,global.authList);
+  console.log(fqdn, global.authList);
 
-  // 現在の認証設定を動的に取得
-  const currentAuthConfig = global.authList[fqdn] || global.authList["default"] || {};
-  console.log(`[auth/config] FQDN=${fqdn} の認証設定:`, currentAuthConfig);
-  // 認証なしモードの場合
-  if (currentAuthConfig.noAuthRequired) {
-    return res.json({ 
-      authenticated: true, 
-      user: {
-        email: null,
-        username: 'guest',
-        displayName: 'ゲスト',
-        avatar: null
-      },
-      provider: 'none',
-      authConfig: currentAuthConfig,
-      permissions: {
-        level: 'full',
-        description: 'フルアクセス（認証なしモード）',
-        canView: true,
-        canDownload: true,
-        canUpload: true,
-        canDelete: true
-      }
-    });
-  }
+  const currentAuthConfig = _resolveAuthConfigForFqdn(fqdn);
+  if (currentAuthConfig.noAuthRequired) return res.json(_guestAuthResponse(currentAuthConfig));
 
-  // ユーザー情報の共通化関数
-  function normalizeUser(u) {
-    if (!u) return { email: null, username: null, displayName: null, avatar: null };
-    // Hydra profile
-    if (u.profile) {
-      return {
-        email: u.profile.email || null,
-        username: u.profile.preferred_username || u.profile.name || null,
-        displayName: u.profile.name || u.profile.preferred_username || null,
-        avatar: u.profile.picture || null
-      };
-    }
-    // GitLab _json
-    if (u._json) {
-      return {
-        email: u._json.email || null,
-        username: u._json.username || null,
-        displayName: u._json.name || u._json.username || null,
-        avatar: u._json.avatar_url || null
-      };
-    }
-    // GitLab/カスタム
-    return {
-      email: u.email || null,
-      username: u.username || u.name || null,
-      displayName: u.name || u.username || null,
-      avatar: u.avatar_url || null
-    };
-  }
-
-  let user = null;
-    // カスタム認証処理でログインした場合のチェック
-  if (req.session?.isAuthenticated && req.session?.user) {
-    user = req.session.user;
-  } else if (req.isAuthenticated && req.isAuthenticated()) {
-    user = req.user;
-  }
-  
+  const user = _determineCurrentUser(req);
   const userInfo = normalizeUser(user);
   const email = userInfo.email || (userInfo.username ? userInfo.username + '@example.com' : null);
   const permissions = email ? getUserPermissions(email) : null;
 
-  if (email) {
-      return res.json({ 
-        authenticated: true, 
-        user: userInfo,
-        provider: user && user.provider ? user.provider : (user && user.profile ? 'hydra' : 'gitlab'),
-        authConfig: currentAuthConfig,
-        permissions
-      });
-  } else {
-      return res.json({
-        authenticated: false,
-        user: userInfo,
-        provider: null,
-        authConfig: currentAuthConfig,
-        permissions: null
-    });
-  }
+  if (email) return res.json({ authenticated: true, user: userInfo, provider: _guessProvider(user), authConfig: currentAuthConfig, permissions });
+  return res.json({ authenticated: false, user: userInfo, provider: null, authConfig: currentAuthConfig, permissions: null });
 });
+
+function _resolveAuthConfigForFqdn(fqdn) {
+  return global.authList[fqdn] || global.authList['default'] || {};
+}
+
+function _guestAuthResponse(currentAuthConfig) {
+  return {
+    authenticated: true,
+    user: { email: null, username: 'guest', displayName: 'ゲスト', avatar: null },
+    provider: 'none',
+    authConfig: currentAuthConfig,
+    permissions: { level: 'full', description: 'フルアクセス（認証なしモード）', canView: true, canDownload: true, canUpload: true, canDelete: true }
+  };
+}
+
+function _determineCurrentUser(req) {
+  if (req.session?.isAuthenticated && req.session?.user) return req.session.user;
+  if (req.isAuthenticated && req.isAuthenticated()) return req.user;
+  return null;
+}
+
+function _guessProvider(user) {
+  return user && user.provider ? user.provider : (user && user.profile ? 'hydra' : 'gitlab');
+}
 
 // 認証設定取得API
 // 認証プロバイダー詳細設定を返すAPI
@@ -477,3 +398,109 @@ router.get("/debug", (req, res) => {
 });
 
 export default router;
+
+// GitLab コールバック処理を分離
+async function _handleGitLabCallback(req, res, code, gitlabConfig) {
+  try {
+    console.log(`[auth/callback] GitLab認証コード検出: ${code.substring(0, 10)}...`);
+    const tokenData = await getGitLabToken({
+      code,
+      clientId: gitlabConfig.GITLAB_CLIENT_ID,
+      clientSecret: gitlabConfig.GITLAB_CLIENT_SECRET,
+      callbackUrl: gitlabConfig.GITLAB_CALLBACK_URL,
+      req
+    });
+    console.log(`[auth/callback] 取得access_token: ${tokenData.access_token ? tokenData.access_token.substring(0, 10) + '...' : 'undefined'}`);
+    const userData = await getGitLabUserInfo(req, tokenData.access_token);
+    console.log(`[auth/callback] GitLabユーザー情報取得成功: ${userData.name}`);
+
+    req.session.user = userData;
+    req.session.accessToken = tokenData.access_token;
+    req.session.isAuthenticated = true;
+
+    console.log(`[auth/callback] GitLab認証成功、トップページにリダイレクト`);
+    const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
+    res.redirect(prefix + "/");
+    return true;
+  } catch (err) {
+    console.error('[auth/_handleGitLabCallback] エラー:', err);
+    return false;
+  }
+}
+
+// Hydra コールバック処理を分離
+async function _handleHydraCallback(req, res, code, state) {
+  // 分割されたヘルパーで処理を簡潔化
+  try {
+    console.log(`[auth/callback] Hydra認証コード検出: ${code.substring(0, 10)}...`);
+
+    if (state) console.log(`[auth/callback] stateパラメータ: ${state}`);
+
+    const hydraConfig = _resolveHydraConfig(req);
+    if (!hydraConfig) {
+      const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+      console.error(`[auth/callback] FQDN=${fqdn} のHydra認証設定が見つかりません`);
+      const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
+      res.redirect(prefix + "/?error=hydra_config");
+      return true;
+    }
+
+    const tokenData = await _exchangeHydraToken(req, code, hydraConfig, state);
+    const userData = await _fetchHydraUserInfo(tokenData);
+    const profileUser = _buildHydraProfile(userData, tokenData);
+    _saveHydraSession(req, profileUser, tokenData, hydraConfig);
+
+    const prefix = (global?.config?.rootPrefix || '/').replace(/\/+$/, '');
+    res.redirect(prefix + "/");
+    return true;
+  } catch (error) {
+    console.error(`[auth/callback] Hydra認証エラー:`, error);
+    return false;
+  }
+}
+
+// helper: hydra 設定を解決
+function _resolveHydraConfig(req) {
+  const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+  let hydraConfig = req.session?.hydraAuthConfig;
+  if (!hydraConfig) hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+  return hydraConfig || null;
+}
+
+// helper: トークンエクスチェンジ
+async function _exchangeHydraToken(req, code, hydraConfig, state) {
+  return getHydraToken({
+    req,
+    code,
+    clientId: hydraConfig.HYDRA_CLIENT_ID,
+    clientSecret: hydraConfig.HYDRA_CLIENT_SECRET,
+    callbackUrl: hydraConfig.HYDRA_CALLBACK_URL,
+    state
+  });
+}
+
+// helper: ユーザー情報取得
+async function _fetchHydraUserInfo(tokenData) {
+  return getHydraUserInfo(tokenData.access_token);
+}
+
+// helper: profile を作成
+function _buildHydraProfile(userData, tokenData) {
+  return {
+    profile: userData,
+    accessToken: tokenData.access_token,
+    refreshToken: tokenData.refresh_token,
+    idToken: tokenData.id_token
+  };
+}
+
+// helper: セッションに保存
+function _saveHydraSession(req, profileUser, tokenData, hydraConfig) {
+  req.session.user = profileUser;
+  req.session.accessToken = tokenData.access_token;
+  req.session.refreshToken = tokenData.refresh_token;
+  req.session.idToken = tokenData.id_token;
+  req.session.isAuthenticated = true;
+  req.session.hydraAuthConfig = hydraConfig;
+  req.user = profileUser;
+}

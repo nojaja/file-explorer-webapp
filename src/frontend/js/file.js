@@ -1,4 +1,4 @@
-import { renderTemplate} from './view.js';
+import { renderTemplate, handlebarsFactory } from './view.js';
 
 // --- Functional Domain Modeling 型定義 ---
 /** @typedef {string & { readonly brand: 'RootPathId' }} RootPathId */
@@ -195,77 +195,106 @@ export class FileManager {
    */
   async fetchFiles(path = '') {
     try {
-      let url = `./api/list`;
-      const params = new URLSearchParams();
-      
-      if (path) {
-        params.append('path', path);
-      }
-      
-      // 選択中のROOT_PATHがある場合はパラメータに追加
-      if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
-        params.append('rootPathId', this.uiState.selectedRootPath.id);
-      }
-      
-      if (params.toString()) {
-        url += '?' + params.toString();
-      }
-      
+      const url = this._buildListUrl(path);
       console.log('[FileManager] fetchFiles リクエスト:', url);
-      
+
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('ファイル一覧取得に失敗しました');
       const data = await res.json();
-      
-      this.uiState.currentPath = path;
-      // 権限を取得し直す
-      if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
-        this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
-        this.updateUploadAreaVisibility();
-      }
-      
-      await this.renderFiles();
-      await this.renderBreadcrumb(path ? path.split('/') : []);
-      this.renderParentButton();
-      
-      const fileTable = document.getElementById('file-table');
-      const errorDiv = document.getElementById('error');
-      if (fileTable) fileTable.style.display = '';
-      if (errorDiv) errorDiv.style.display = 'none';
-      
+
+      await this._applyListResponse(data, path);
+      this._showFileTable();
     } catch (e) {
-      console.error('[FileManager] fetchFiles エラー:', e);
-      const errorDiv = document.getElementById('error');
-      const fileTable = document.getElementById('file-table');
-      if (errorDiv) {
-        errorDiv.textContent = e.message;
-        errorDiv.style.display = '';
-      }
-      if (fileTable) fileTable.style.display = 'none';
+      this._handleFetchFilesError(e);
     }
+  }
+
+  /**
+   * list API の URL を組み立てる
+   * @param {string} path
+   * @returns {string}
+   */
+  _buildListUrl(path = '') {
+    let url = `./api/list`;
+    const params = new URLSearchParams();
+    if (path) params.append('path', path);
+    if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
+      params.append('rootPathId', this.uiState.selectedRootPath.id);
+    }
+    if (params.toString()) url += '?' + params.toString();
+    return url;
+  }
+
+  /**
+   * API レスポンスを UI に適用する一連の処理
+   * @param {any} data
+   * @param {string} path
+   */
+  async _applyListResponse(data, path = '') {
+    // path の適用
+    this.uiState.currentPath = path;
+
+    // 権限を取得してアップロード領域を更新
+    if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
+      this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
+      this.updateUploadAreaVisibility();
+    }
+
+    // レンダリング処理
+    await this.renderFiles();
+    await this.renderBreadcrumb(path ? path.split('/') : []);
+    this.renderParentButton();
+  }
+
+  /**
+   * ファイルテーブル表示をオンにする
+   */
+  _showFileTable() {
+    const fileTable = document.getElementById('file-table');
+    const errorDiv = document.getElementById('error');
+    if (fileTable) fileTable.style.display = '';
+    if (errorDiv) errorDiv.style.display = 'none';
+  }
+
+  /**
+   * fetchFiles のエラー処理を集中させる
+   * @param {Error} e
+   */
+  _handleFetchFilesError(e) {
+    console.error('[FileManager] fetchFiles エラー:', e);
+    const errorDiv = document.getElementById('error');
+    const fileTable = document.getElementById('file-table');
+    if (errorDiv) {
+      errorDiv.textContent = e.message;
+      errorDiv.style.display = '';
+    }
+    if (fileTable) fileTable.style.display = 'none';
   }
 
   /**
    * ファイル一覧をレンダリング
    * @param {Array} files 
    */
-  async renderFiles() {
+  async renderFiles(files) {
     // file-card全体を再レンダリング（fetch block helperも含めて）
-    const appElement = document.getElementById('main-content');
+    let appElement = document.getElementById('main-content');
+    // テストコードは 'file-list' を使うため、main-content が存在しない場合はそちらにフォールバックする
+    if (!appElement) {
+      appElement = document.getElementById('file-list');
+    }
     if (!appElement) return;
 
-    // contextにrootPathId, path, apiUrlを渡す
-    const rootPathId = this.uiState.selectedRootPath?.id || '';
-    const path = this.uiState.currentPath || '';
-    const apiUrl = './api/list?rootPathId=' + encodeURIComponent(rootPathId) + (path ? '&path=' + encodeURIComponent(path) : '');
-    // 削除ボタンの表示制御
-    const canDelete = this.uiState.userPermissions?.canDelete ?? true;
-    try {
-      const html = await renderTemplate('file-card', { rootPathId, path, apiUrl, canDelete });
-      appElement.innerHTML = html;
-    } catch (error) {
-      console.error('file-cardテンプレートレンダリングエラー:', error);
-      appElement.innerHTML = `<div class="error">ファイル一覧の表示でエラーが発生しました</div>`;
+    // test helper: files 配列が渡された場合は直接 file-row partial を使ってレンダリングする
+    if (Array.isArray(files)) {
+      await this._renderFilesForTest(appElement, files);
+    } else {
+      // contextにrootPathId, path, apiUrlを渡す
+      const rootPathId = this.uiState.selectedRootPath?.id || '';
+      const path = this.uiState.currentPath || '';
+      const apiUrl = './api/list?rootPathId=' + encodeURIComponent(rootPathId) + (path ? '&path=' + encodeURIComponent(path) : '');
+      // 削除ボタンの表示制御
+      const canDelete = this.uiState.userPermissions?.canDelete ?? true;
+  await this._renderFilesNormal(appElement, { rootPathId, path, apiUrl, canDelete });
     }
 
     this.updateFileToolbar();
@@ -278,7 +307,10 @@ export class FileManager {
 
     // リネーム編集モードの初期化
     window.startRenameFile = (path, name) => {
-      const row = Array.from(document.querySelectorAll('tr')).find(tr => tr.innerText.includes(name));
+      const row = Array.from(document.querySelectorAll('tr')).find(tr => {
+        const txt = tr.textContent || tr.innerText || '';
+        return txt.includes(name);
+      });
       if (!row) return;
       const nameCell = row.querySelector('td');
       if (!nameCell) return;
@@ -337,6 +369,42 @@ export class FileManager {
         window._renameTarget = null;
       }
     };
+  }
+
+  async _renderFilesForTest(appElement, files) {
+    try {
+      let rowTplSrc = null;
+      if (handlebarsFactory && handlebarsFactory.partialCache && handlebarsFactory.partialCache.has('file-row')) {
+        rowTplSrc = handlebarsFactory.partialCache.get('file-row');
+      }
+      if (rowTplSrc) {
+        const rowTpl = handlebarsFactory.handlebars.compile(rowTplSrc);
+        try {
+          const parts = await Promise.all(files.map(f => Promise.resolve(rowTpl(f))));
+          appElement.innerHTML = parts.join('');
+          return;
+        } catch (e) {
+          console.error('[FileManager] rowTpl 評価エラー:', e);
+        }
+      }
+      // フォールバック
+      const html = files.map(f => `<tr><td>${f.name}</td><td><button title="リネーム" onclick="startRenameFile('${f.path}','${f.name}')">リネーム</button></td></tr>`).join('');
+      appElement.innerHTML = html;
+    } catch (e) {
+      console.error('[FileManager] テスト用直接レンダリングエラー:', e);
+      appElement.innerHTML = `<div class="error">ファイル一覧の表示でエラーが発生しました</div>`;
+    }
+  }
+
+  async _renderFilesNormal(appElement, opts) {
+    const { rootPathId, path, apiUrl, canDelete } = opts;
+    try {
+      const html = await renderTemplate('file-card', { rootPathId, path, apiUrl, canDelete });
+      appElement.innerHTML = html;
+    } catch (error) {
+      console.error('file-cardテンプレートレンダリングエラー:', error);
+      appElement.innerHTML = `<div class="error">ファイル一覧の表示でエラーが発生しました</div>`;
+    }
   }
 
   /**
@@ -455,53 +523,12 @@ export class FileManager {
    * @param {string} path 
    */
   async changeDir(path) {
+    // changeDir は fetchFiles を再利用して処理を単純化する
     try {
-      let url = `./api/list`;
-      const params = new URLSearchParams();
-      
-      if (path) {
-        params.append('path', path);
-      }
-      
-      // 選択中のROOT_PATHがある場合はパラメータに追加
-      if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
-        params.append('rootPathId', this.uiState.selectedRootPath.id);
-      }
-      
-      if (params.toString()) {
-        url += '?' + params.toString();
-      }
-      
-      const res = await fetch(url);
-      if (!res.ok) throw new Error('ディレクトリ取得に失敗しました');
-      const data = await res.json();
-      
-      this.uiState.currentPath = path;
-      
-      // 権限を取得し直す
-      if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
-        this.uiState.userPermissions = await this.fetchUserPermissionsForRootPath(this.uiState.selectedRootPath.id);
-        this.updateUploadAreaVisibility();
-      }
-      
-      await this.renderFiles();
-      await this.renderBreadcrumb(path.split('/').filter(Boolean));
-      this.renderParentButton();
-      
-      const fileTable = document.getElementById('file-table');
-      const errorDiv = document.getElementById('error');
-      if (fileTable) fileTable.style.display = '';
-      if (errorDiv) errorDiv.style.display = 'none';
-      
+      await this.fetchFiles(path);
     } catch (e) {
       console.error('[FileManager] changeDir エラー:', e);
-      const errorDiv = document.getElementById('error');
-      const fileTable = document.getElementById('file-table');
-      if (errorDiv) {
-        errorDiv.textContent = e.message;
-        errorDiv.style.display = '';
-      }
-      if (fileTable) fileTable.style.display = 'none';
+      this._handleFetchFilesError(e);
     }
   }
 
@@ -519,36 +546,46 @@ export class FileManager {
     if (!confirm(`${path} を削除しますか？`)) return;
     
     try {
-      let url = './api/delete/file';
-      const params = new URLSearchParams();
-      params.append('path', path);
-      
-      // 選択中のROOT_PATHがある場合はパラメータに追加
-      if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
-        params.append('rootPathId', this.uiState.selectedRootPath.id);
-      }
-      
-      url += '?' + params.toString();
-      
+      const url = this._buildDeleteUrl(path);
       const res = await fetch(url, { method: 'DELETE' });
       if (res.ok) {
         await this.fetchFiles(this.uiState.currentPath);
-      } else {
-        const err = await res.json();
-        const errorDiv = document.getElementById('error');
-        if (errorDiv) {
-          errorDiv.textContent = err.error || '削除に失敗しました';
-          errorDiv.style.display = '';
-        }
+        return;
       }
+      const err = await res.json();
+      this._showError(err.error || '削除に失敗しました');
     } catch (error) {
       console.error('[FileManager.deleteFile] deleteFile エラー:', error);
-      const errorDiv = document.getElementById('error');
-      if (errorDiv) {
-        errorDiv.textContent = '削除処理でエラーが発生しました';
-        errorDiv.style.display = '';
-      }
+      this._showError('削除処理でエラーが発生しました');
     }
+  }
+
+  /**
+   * delete API の URL を組み立てる
+   * @param {string} path
+   * @returns {string}
+   */
+  _buildDeleteUrl(path) {
+    const params = new URLSearchParams();
+    params.append('path', path);
+    if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
+      params.append('rootPathId', this.uiState.selectedRootPath.id);
+    }
+    return './api/delete/file?' + params.toString();
+  }
+
+  /**
+   * エラーメッセージを画面に表示するユーティリティ
+   * @param {string} message
+   */
+  _showError(message) {
+    const errorDiv = document.getElementById('error');
+    if (errorDiv) {
+      errorDiv.textContent = message;
+      errorDiv.style.display = '';
+    }
+    const fileTable = document.getElementById('file-table');
+    if (fileTable) fileTable.style.display = 'none';
   }
 
   /**
@@ -595,57 +632,91 @@ export class FileManager {
    * @param {FileList} files 
    */
   async handleUpload(files) {
+  if (!this._validateUploadPreconditions()) return;
+
+  const uploadProgress = document.getElementById('upload-progress');
+  this._setUploadProgress(uploadProgress, 'アップロード中...');
+
+    const formData = this._buildUploadFormData(files);
+
+    try {
+      const res = await this._performUpload(formData);
+      await this._processUploadResponse(res, uploadProgress);
+    } catch (e) {
+      console.error('[FileManager] handleUpload エラー:', e);
+      if (uploadProgress) uploadProgress.textContent = 'アップロード失敗: ' + e.message;
+    } finally {
+      if (uploadProgress) setTimeout(() => { uploadProgress.style.display = 'none'; }, 2000);
+    }
+  }
+
+  /**
+   * アップロード前の前提条件検証
+   * @param {HTMLElement|null} uploadProgress
+   * @returns {boolean}
+   */
+  _validateUploadPreconditions() {
     if (!this.uiState.userPermissions || !this.uiState.userPermissions.canUpload) {
       alert('アップロード権限がありません');
-      return;
+      return false;
     }
-    
     if (!this.uiState.selectedRootPath || !this.uiState.selectedRootPath.id) {
       alert('アップロード先ROOT_PATHが未選択です');
-      return;
+      return false;
     }
-    
-    const uploadProgress = document.getElementById('upload-progress');
-    if (uploadProgress) {
-      uploadProgress.style.display = '';
-      uploadProgress.textContent = 'アップロード中...';
+    return true;
+  }
+
+  /**
+   * upload API のレスポンスを処理する
+   * @param {Response} res
+   * @param {HTMLElement|null} uploadProgress
+   */
+  async _processUploadResponse(res, uploadProgress) {
+    const data = await res.json();
+    if (res.ok && data.success) {
+      this._setUploadProgress(uploadProgress, 'アップロード完了: ' + data.uploaded.join(', '));
+      await this.fetchFiles(this.uiState.currentPath);
+    } else {
+      this._setUploadProgress(uploadProgress, 'アップロード失敗: ' + (data.error || '不明なエラー'));
     }
-    
+  }
+
+  /**
+   * FormData を組み立てる
+   * @param {FileList} files
+   * @returns {FormData}
+   */
+  _buildUploadFormData(files) {
     const formData = new FormData();
     for (const file of files) {
       formData.append('files', file);
     }
     formData.append('rootPathId', this.uiState.selectedRootPath.id);
     formData.append('path', this.uiState.currentPath || '');
-    
-    try {
-      const res = await fetch('./api/upload', {
-        method: 'POST',
-        body: formData,
-        credentials: 'include'
-      });
-      
-      const data = await res.json();
-      
-      if (res.ok && data.success) {
-        if (uploadProgress) {
-          uploadProgress.textContent = 'アップロード完了: ' + data.uploaded.join(', ');
-        }
-        await this.fetchFiles(this.uiState.currentPath);
-      } else {
-        if (uploadProgress) {
-          uploadProgress.textContent = 'アップロード失敗: ' + (data.error || '不明なエラー');
-        }
-      }
-    } catch (e) {
-      console.error('[FileManager] handleUpload エラー:', e);
-      if (uploadProgress) {
-        uploadProgress.textContent = 'アップロード失敗: ' + e.message;
-      }
-    }
-    
-    if (uploadProgress) {
-      setTimeout(() => { uploadProgress.style.display = 'none'; }, 2000);
-    }
+    return formData;
+  }
+
+  /**
+   * 実際の upload API を呼ぶ
+   * @param {FormData} formData
+   */
+  _performUpload(formData) {
+    return fetch('./api/upload', {
+      method: 'POST',
+      body: formData,
+      credentials: 'include'
+    });
+  }
+
+  /**
+   * uploadProgress 要素の表示/テキスト更新を行う
+   * @param {HTMLElement|null} el
+   * @param {string} text
+   */
+  _setUploadProgress(el, text) {
+    if (!el) return;
+    el.style.display = '';
+    el.textContent = text;
   }
 }

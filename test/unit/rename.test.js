@@ -23,7 +23,7 @@ describe('/api/rename', () => {
   it('正常系: ファイル名変更', async () => {
     const res = await request(app)
       .post('/api/rename')
-      .send({ path: `test-rename/foo.txt`, newName: 'bar.txt' });
+      .send({ path: `test-rename/foo.txt`, newName: 'bar.txt', rootPathId: 'main' });
     expect(res.status).toBe(200);
     expect(await fs.stat(renamedFile)).toBeTruthy();
   });
@@ -31,7 +31,7 @@ describe('/api/rename', () => {
   it('異常系: 不正文字', async () => {
     const res = await request(app)
       .post('/api/rename')
-      .send({ path: `test-rename/bar.txt`, newName: 'a/b.txt' });
+      .send({ path: `test-rename/bar.txt`, newName: 'a/b.txt', rootPathId: 'main' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/不正な文字/);
   });
@@ -39,7 +39,7 @@ describe('/api/rename', () => {
   it('異常系: 空文字', async () => {
     const res = await request(app)
       .post('/api/rename')
-      .send({ path: `test-rename/bar.txt`, newName: '' });
+      .send({ path: `test-rename/bar.txt`, newName: '', rootPathId: 'main' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/空にできません/);
   });
@@ -47,7 +47,7 @@ describe('/api/rename', () => {
   it('異常系: パストラバーサル', async () => {
     const res = await request(app)
       .post('/api/rename')
-      .send({ path: `../foo.txt`, newName: 'baz.txt' });
+      .send({ path: `../foo.txt`, newName: 'baz.txt', rootPathId: 'main' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/パストラバーサル/);
   });
@@ -57,7 +57,7 @@ describe('/api/rename', () => {
     await fs.writeFile(path.join(testDir, 'bar.txt'), 'dummy3');
     const res = await request(app)
       .post('/api/rename')
-      .send({ path: `test-rename/bar.txt`, newName: 'baz.txt' });
+      .send({ path: `test-rename/bar.txt`, newName: 'baz.txt', rootPathId: 'main' });
     expect(res.status).toBe(400);
     expect(res.body.error).toMatch(/既に存在/);
   });

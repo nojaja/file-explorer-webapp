@@ -9,8 +9,12 @@
  * @param {string} state - CSRF保護用のstate値（必要な場合）
  * @returns {Promise<Object>} - トークン情報
  */
-export async function getHydraToken(req, code, clientId, clientSecret, callbackUrl, state = null) {
+export async function getHydraToken(options) {
     try {
+        // Accept single options object: { req, code, clientId, clientSecret, callbackUrl, state }
+        const opts = options || {};
+        const req = opts.req;
+        let { code, clientId, clientSecret, callbackUrl, state = null } = opts;
         // 内部通信用のHydra URLを使用
 
         // FQDNごとの設定取得
@@ -20,7 +24,7 @@ export async function getHydraToken(req, code, clientId, clientSecret, callbackU
         const hydraTokenUrl = hydraConfig?.HYDRA_TOKEN_URL_INTERNAL;
         const tokenEndpoint = `${hydraTokenUrl}`;
 
-        const response = await fetch(tokenEndpoint, {
+    const response = await fetch(tokenEndpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -133,51 +137,64 @@ export async function acceptLoginChallenge(req, loginChallenge, subject = 'test-
  * @param {Object} userInfo - ユーザー情報（username, emailを含む）
  * @returns {Promise<Object>} - 受け入れレスポンス
  */
+// ヘルパー: userInfo をパースし id_token claims を作成
+function _buildIdTokenClaims(userInfo) {
+    const defaultClaims = {
+        name: 'test-user',
+        email: 'testuser@example.com',
+        email_verified: true
+    };
+
+    if (!userInfo) return defaultClaims;
+
+    try {
+        const parsed = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
+        return {
+            name: parsed.username || 'unknown',
+            preferred_username: parsed.username || 'unknown',
+            email: parsed.email || 'testuser@example.com',
+            email_verified: true
+        };
+    } catch (e) {
+        console.warn('[hydraTokenHelper] ユーザー情報パースエラー:', e);
+        return {
+            ...defaultClaims,
+            name: userInfo.toString(),
+            email: 'testuser@example.com'
+        };
+    }
+}
+
+// ヘルパー: accept body を作成
+function _createAcceptBody(scopes, idTokenClaims) {
+    return JSON.stringify({
+        grant_scope: scopes,
+        grant_access_token_audience: [],
+        remember: false,
+        remember_for: 0,
+        session: {
+            id_token: idTokenClaims
+        }
+    });
+}
+
 export async function acceptConsentChallenge(req, consentChallenge, scopes = ['openid', 'profile', 'email'], userInfo = null) {
     try {
-        // FQDNごとの設定取得
         const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'localhost');
         const { getAuthProviderConfig } = await import('../authProviderConfig.js');
         const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
-        const hydraAdminUrl = hydraConfig?.HYDRA_ADMIN_URL_INTERNAL;// 'http://hydra:4445'
+        const hydraAdminUrl = hydraConfig?.HYDRA_ADMIN_URL_INTERNAL;
         const acceptUrl = `${hydraAdminUrl}/admin/oauth2/auth/requests/consent/accept`;
 
-        // ユーザー情報をパースしてIDトークンに含める
-        let idTokenClaims = { 
-            'name': 'test-user',
-            'email': 'testuser@example.com', // デフォルトemail
-            'email_verified': true
-        };
-        if (userInfo) {
-            try {
-                const parsedUserInfo = typeof userInfo === 'string' ? JSON.parse(userInfo) : userInfo;
-                idTokenClaims = {
-                    'name': parsedUserInfo.username || 'unknown',
-                    'preferred_username': parsedUserInfo.username || 'unknown',
-                    'email': parsedUserInfo.email || 'testuser@example.com', // emailが空の場合デフォルト値
-                    'email_verified': true // メール検証済みとして扱う
-                };
-            } catch (parseError) {
-                console.warn('[hydraTokenHelper] ユーザー情報パースエラー:', parseError);
-                idTokenClaims['name'] = userInfo.toString();
-                idTokenClaims['email'] = 'testuser@example.com'; // パースエラー時もemailを設定
-            }
-        }
+        const idTokenClaims = _buildIdTokenClaims(userInfo);
+        const body = _createAcceptBody(scopes, idTokenClaims);
 
         const response = await fetch(`${acceptUrl}?consent_challenge=${encodeURIComponent(consentChallenge)}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({
-                grant_scope: scopes,
-                grant_access_token_audience: [],
-                remember: false,
-                remember_for: 0,
-                session: {
-                    id_token: idTokenClaims
-                }
-            })
+            body
         });
 
         if (!response.ok) {

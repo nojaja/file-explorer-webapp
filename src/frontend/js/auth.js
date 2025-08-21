@@ -73,13 +73,13 @@ export class AuthManager {
       } else {
         this.isAuthenticated = false;
         this.currentUser = null;
-        
-  		await this.renderUnauthenticatedState(sidebarAuth);
-        
+
+        await this.renderUnauthenticatedState(sidebarAuth);
+
         // メインコンテンツの非表示
         const mainContent = document.getElementById('main-content');
         if (mainContent) mainContent.style.display = 'none';
-        
+
         window.isAuthenticated = false;
       }
       
@@ -110,10 +110,8 @@ export class AuthManager {
       'unknown': 'OAuth'
     }[providerName] || 'OAuth';
     
-    // ユーザー名取得（displayName優先、なければusername）
-    const userName = (data.user && (data.user.displayName || data.user.username)) 
-      ? (data.user.displayName || data.user.username) 
-      : '';
+  // ユーザー名取得（displayName優先、なければusername）
+  const userName = data.user?.displayName || data.user?.username || '';
     
     const templateData = {
       authenticated: true,

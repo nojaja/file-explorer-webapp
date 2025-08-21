@@ -3,114 +3,101 @@
 // レスポンス内のコンテナURL（hydra:4444/hydra:4445）をブラウザアクセス用URL（localhost:4444/localhost:4445）に置き換える
 import { getAuthProviderConfig } from '../authProviderConfig.js';
 
-// Hydra URL置換用ミドルウェア
-export function hydraUrlReplaceMiddleware(req, res, next) {
-  const originalSend = res.send;
-  const originalRedirect = res.redirect;
+function _processUrl(url, hydraConfig) {
+  if (!url) return url;
+  let processedUrl = url;
+  const authContainer = hydraConfig.HYDRA_AUTH_URL_INTERNAL;
+  const authBrowser = hydraConfig.HYDRA_AUTH_URL;
+  const adminContainer = hydraConfig.HYDRA_ADMIN_URL_INTERNAL;
+  const adminBrowser = hydraConfig.HYDRA_ADMIN_URL;
 
-  // FQDNごとのHydra URLの情報を取得
-  const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
-  const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
-  if (!hydraConfig) {
-    next();
-    return;
-  }
-  const hydraAuthContainerUrl = hydraConfig.HYDRA_AUTH_URL_INTERNAL;
-  const hydraAuthBrowserUrl = hydraConfig.HYDRA_AUTH_URL;
-  const hydraAdminContainerUrl = hydraConfig.HYDRA_ADMIN_URL_INTERNAL;
-  const hydraAdminBrowserUrl = hydraConfig.HYDRA_ADMIN_URL;
-
-  // クエリパラメータの処理
-  const processUrl = (url) => {
-    if (!url) return url;
-
-    let processedUrl = url;
-    // Hydra Authの置換
-    if (hydraAuthContainerUrl && processedUrl.includes(hydraAuthContainerUrl)) {
-      console.log(`[hydraUrlReplace] URLにHydra Auth コンテナURL検出: ${url}`);
-      processedUrl = processedUrl.replace(new RegExp(hydraAuthContainerUrl, 'g'), hydraAuthBrowserUrl);
-      console.log(`[hydraUrlReplace] 修正後URL: ${processedUrl}`);
-    }
-
-    // Hydra Adminの置換
-    if (hydraAdminContainerUrl && processedUrl.includes(hydraAdminContainerUrl)) {
-      console.log(`[hydraUrlReplace] URLにHydra Admin コンテナURL検出: ${url}`);
-      processedUrl = processedUrl.replace(new RegExp(hydraAdminContainerUrl, 'g'), hydraAdminBrowserUrl);
-      console.log(`[hydraUrlReplace] 修正後URL: ${processedUrl}`);
-    }
-
-    return processedUrl;
-  };
-
-  // リクエストURLの処理
-  if (req.url) {
-    req.url = processUrl(req.url);
+  if (authContainer && processedUrl.includes(authContainer)) {
+    console.log(`[hydraUrlReplace] URLにHydra Auth コンテナURL検出: ${url}`);
+    processedUrl = processedUrl.replace(new RegExp(authContainer, 'g'), authBrowser);
+    console.log(`[hydraUrlReplace] 修正後URL: ${processedUrl}`);
   }
 
-  // レスポンスリダイレクトをオーバーライド
-  res.redirect = function(status, url) {
+  if (adminContainer && processedUrl.includes(adminContainer)) {
+    console.log(`[hydraUrlReplace] URLにHydra Admin コンテナURL検出: ${url}`);
+    processedUrl = processedUrl.replace(new RegExp(adminContainer, 'g'), adminBrowser);
+    console.log(`[hydraUrlReplace] 修正後URL: ${processedUrl}`);
+  }
+
+  return processedUrl;
+}
+
+function _createRedirectOverride(originalRedirect, hydraConfig) {
+  return function redirectOverride(status, url) {
     try {
-      // status引数がオプションの場合の処理
       let redirectUrl = url;
       let redirectStatus = status;
-
       if (typeof status === 'string') {
         redirectUrl = status;
-        redirectStatus = 302; // デフォルトステータスコード
+        redirectStatus = 302;
       }
-      
-      // URLの処理
-      const modifiedUrl = processUrl(redirectUrl);
-
+      const modifiedUrl = _processUrl(redirectUrl, hydraConfig);
       if (modifiedUrl !== redirectUrl) {
         return originalRedirect.call(this, redirectStatus, modifiedUrl);
       }
     } catch (err) {
       console.error('[hydraUrlReplace] リダイレクト処理エラー:', err);
     }
-    
-    // 元のredirect関数を呼び出す
     return originalRedirect.apply(this, arguments);
   };
+}
 
-  // レスポンスボディを処理するオーバーライド関数
-  res.send = function(body) {
+function _createSendOverride(originalSend, hydraConfig) {
+  return function sendOverride(body) {
     try {
-      // レスポンスがHTMLまたはJSONの場合のみ処理
-      const contentType = res.getHeader('content-type');
-
+      const contentType = this.getHeader ? this.getHeader('content-type') : null;
       if (typeof body === 'string' &&
          (contentType?.includes('text/html') || contentType?.includes('application/json') || contentType?.includes('text/plain'))) {
-
-        let modifiedBody = body;
-        let modified = false;
-        
-        // Hydra AuthのコンテナURLをブラウザアクセス用URLに置換
-        if (hydraAuthContainerUrl && body.includes(hydraAuthContainerUrl)) {
-          console.log(`[hydraUrlReplace] レスポンスボディにHydra Auth コンテナURL検出`);
-          modifiedBody = modifiedBody.replace(new RegExp(hydraAuthContainerUrl, 'g'), hydraAuthBrowserUrl);
-          modified = true;
-        }
-        
-        // Hydra AdminのコンテナURLをブラウザアクセス用URLに置換
-        if (hydraAdminContainerUrl && body.includes(hydraAdminContainerUrl)) {
-          console.log(`[hydraUrlReplace] レスポンスボディにHydra Admin コンテナURL検出`);
-          modifiedBody = modifiedBody.replace(new RegExp(hydraAdminContainerUrl, 'g'), hydraAdminBrowserUrl);
-          modified = true;
-        }
-        
-        // 修正されたボディで元のsend関数を呼び出す
-        if (modified) {
-          return originalSend.call(this, modifiedBody);
-        }
+        const { modified, modifiedBody } = _replaceBodyUrls(body, hydraConfig);
+        if (modified) return originalSend.call(this, modifiedBody);
       }
     } catch (err) {
       console.error('[hydraUrlReplace] 処理エラー:', err);
     }
-    
-    // 元のsend関数を呼び出す
     return originalSend.call(this, body);
   };
+}
+
+function _replaceBodyUrls(body, hydraConfig) {
+  let modifiedBody = body;
+  let modified = false;
+  const authContainer = hydraConfig.HYDRA_AUTH_URL_INTERNAL;
+  const authBrowser = hydraConfig.HYDRA_AUTH_URL;
+  const adminContainer = hydraConfig.HYDRA_ADMIN_URL_INTERNAL;
+  const adminBrowser = hydraConfig.HYDRA_ADMIN_URL;
+  if (authContainer && body.includes(authContainer)) {
+    console.log('[hydraUrlReplace] レスポンスボディにHydra Auth コンテナURL検出');
+    modifiedBody = modifiedBody.replace(new RegExp(authContainer, 'g'), authBrowser);
+    modified = true;
+  }
+  if (adminContainer && body.includes(adminContainer)) {
+    console.log('[hydraUrlReplace] レスポンスボディにHydra Admin コンテナURL検出');
+    modifiedBody = modifiedBody.replace(new RegExp(adminContainer, 'g'), adminBrowser);
+    modified = true;
+  }
+  return { modified, modifiedBody };
+}
+
+// Hydra URL置換用ミドルウェア
+export function hydraUrlReplaceMiddleware(req, res, next) {
+  const originalSend = res.send;
+  const originalRedirect = res.redirect;
+
+  const fqdn = req?.headers?.host || (typeof window !== 'undefined' ? window.location.host : 'default');
+  const hydraConfig = getAuthProviderConfig(fqdn, 'hydra');
+  if (!hydraConfig) {
+    next();
+    return;
+  }
+
+  if (req.url) req.url = _processUrl(req.url, hydraConfig);
+
+  res.redirect = _createRedirectOverride(originalRedirect, hydraConfig);
+  res.send = _createSendOverride(originalSend, hydraConfig);
 
   next();
 }

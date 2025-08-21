@@ -3,6 +3,17 @@ import { getHydraUserInfo } from "../util/hydraTokenHelper.js";
 import { isEmailAuthorized, getUserByEmail } from "../services/userService.js";
 import { canUserAccess, canUserPerformAction, getUserPermissions } from "../services/authorizationService.js";
 
+// ユーザーEmail抽出ヘルパー（モジュールスコープで共通利用）
+function _extractEmailFromReq(req) {
+    if (req.session && req.session.isAuthenticated && req.session.user) {
+        if (req.session.user.profile && req.session.user.profile.email) return req.session.user.profile.email;
+        if (req.session.user.email) return req.session.user.email;
+        return null;
+    }
+    if (req.user && req.user.email) return req.user.email;
+    return null;
+}
+
 /**
  * OAuth認証チェックミドルウェア
  * リクエストヘッダーのAuthorizationトークンをチェックして認証状態を確認
@@ -150,30 +161,14 @@ export async function accessAuthorizationMiddleware(req, res, next) {
         console.log('[accessAuthorizationMiddleware] 認証なしモード');
         return next();
     }    let userEmail = null;
+    userEmail = _extractEmailFromReq(req);
 
-    // セッションベース認証のチェック
-    if (req.session && req.session.isAuthenticated && req.session.user) {
-        // Hydra認証の場合（profileオブジェクト内にemail）
-        if (req.session.user.profile && req.session.user.profile.email) {
-            userEmail = req.session.user.profile.email;
-            console.log('[accessAuthorizationMiddleware] Hydraセッション認証でユーザー情報取得:', userEmail);
-        }
-        // GitLab認証の場合（直接emailプロパティ）
-        else if (req.session.user.email) {
-            userEmail = req.session.user.email;
-            console.log('[accessAuthorizationMiddleware] GitLabセッション認証でユーザー情報取得:', userEmail);
-        } else {
-            console.log('[accessAuthorizationMiddleware] セッションユーザー構造:', {
-                hasProfile: !!req.session.user.profile,
-                hasDirectEmail: !!req.session.user.email,
-                sessionUser: req.session.user
-            });
-        }
-    }
-    // トークンベース認証のチェック（API直接アクセス等）
-    else if (req.user && req.user.email) {
-        userEmail = req.user.email;
-        console.log('[accessAuthorizationMiddleware] トークン認証でユーザー情報取得:', userEmail);
+    if (!userEmail) {
+        console.error('[accessAuthorizationMiddleware] ユーザー情報が見つかりません');
+        return res.status(401).json({ 
+            error: 'Unauthorized', 
+            message: '認証情報が不正です。再度ログインしてください。' 
+        });
     }
 
     // ユーザー情報が見つからない場合
@@ -187,32 +182,14 @@ export async function accessAuthorizationMiddleware(req, res, next) {
 
     // アクセス権チェック（viewアクセス）
     const canAccess = canUserAccess(userEmail);
-    if (!canAccess) {
-        console.warn(`[accessAuthorizationMiddleware] アクセス拒否: ${userEmail}`);
-        return res.status(403).json({ 
-            error: 'Forbidden', 
-            message: `アクセスが拒否されました。Emailアドレス「${userEmail}」にはアクセス権限がありません。` 
-        });
-    }
+    if (!canAccess) return res.status(403).json({ error: 'Forbidden', message: `アクセスが拒否されました。Emailアドレス「${userEmail}」にはアクセス権限がありません。` });
 
     console.log(`[accessAuthorizationMiddleware] アクセス認可成功: ${userEmail}`);
-    
-    // ユーザーの権限情報をリクエストに追加
-    const permissions = getUserPermissions(userEmail);
-    req.userPermissions = permissions;
-    
-    // ローカルユーザー情報も取得してリクエストに追加
+    req.userPermissions = getUserPermissions(userEmail);
     const localUser = getUserByEmail(userEmail);
-    if (localUser) {
-        req.localUser = localUser;
-    }
-
-    // ユーザー情報をリクエストに追加（統一性のため）
-    if (!req.user) {
-        req.user = req.session.user;
-    }
-
-    next();
+    if (localUser) req.localUser = localUser;
+    if (!req.user) req.user = req.session.user;
+    return next();
 }
 
 /**
@@ -226,31 +203,12 @@ export function createActionAuthorizationMiddleware(action) {
         if (global.authList.noAuthRequired) {
             console.log(`[actionAuthMiddleware:${action}] 認証なしモード`);
             return next();
-        }        let userEmail = null;
-
-        // セッションベース認証のチェック
-        if (req.session && req.session.isAuthenticated && req.session.user) {
-            // Hydra認証の場合（profileオブジェクト内にemail）
-            if (req.session.user.profile && req.session.user.profile.email) {
-                userEmail = req.session.user.profile.email;
-            }
-            // GitLab認証の場合（直接emailプロパティ）
-            else if (req.session.user.email) {
-                userEmail = req.session.user.email;
-            }
-        }
-        // トークンベース認証のチェック（API直接アクセス等）
-        else if (req.user && req.user.email) {
-            userEmail = req.user.email;
         }
 
-        // ユーザー情報が見つからない場合
+        const userEmail = _extractEmailFromReq(req);
         if (!userEmail) {
             console.error(`[actionAuthMiddleware:${action}] ユーザー情報が不正です`);
-            return res.status(401).json({ 
-                error: 'Unauthorized', 
-                message: '認証情報が不正です。' 
-            });
+            return res.status(401).json({ error: 'Unauthorized', message: '認証情報が不正です。' });
         }
 
         const canPerform = canUserPerformAction(userEmail, action);
