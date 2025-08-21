@@ -35,17 +35,17 @@ export class CustomHandlebarsFactory {
       return new Handlebars.SafeString(ret);
     });
     // ifEquals: 2値比較の条件分岐
-    this.handlebars.registerHelper('ifEquals', function (arg1, arg2, options) {
-      return (arg1 == arg2) ? options.fn(this) : options.inverse(this);
+    this.handlebars.registerHelper('ifEquals', function (arg1, arg2, _options) {
+      return (arg1 == arg2) ? _options.fn(this) : _options.inverse(this);
     });
   // log:ログ出力用ヘルパー
   // 記載例： {{log var1 var2}}
-    this.handlebars.registerHelper('log', function (arg1, arg2, options) {
+    this.handlebars.registerHelper('log', function (arg1, arg2) {
       console.log('[Handlebars Helper Log]', arg1, arg2);
       return '';
     });
     // fetch: REST APIをコールしjsonをブロック内で参照できる非同期block helper
-    this.handlebars.registerHelper('fetch', async function(apiUrl, options) {
+	this.handlebars.registerHelper('fetch', async function(apiUrl, _options) {
       try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
@@ -53,11 +53,11 @@ export class CustomHandlebarsFactory {
         }
         const json = await response.json();
         // json全体をthisとして参照可能
-        return await options.fn(json);
+        return await _options.fn(json);
       } catch (error) {
         console.error('fetch helper error:', error);
-        if (options.inverse) {
-          return await options.inverse(this);
+        if (_options.inverse) {
+          return await _options.inverse(this);
         }
         return '';
       }
@@ -155,7 +155,6 @@ const handlebarsFactory = new CustomHandlebarsFactory();
  * @returns {Promise<string>} - レンダリング済みHTML文字列
  */
 export async function renderTemplate(templateName, context = {}) {
-  console.log('view.js renderTemplate');
   try {
     const template = await handlebarsFactory.getPageTemplate(templateName);
     // promised-handlebarsのtemplate関数は常にPromiseを返すため、awaitが必要

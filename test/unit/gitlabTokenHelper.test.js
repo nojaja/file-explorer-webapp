@@ -1,7 +1,7 @@
 
 import { jest } from '@jest/globals';
 jest.unstable_mockModule('../../src/backend/authProviderConfig.js', () => ({
-  getAuthProviderConfig: async (fqdn, providerName) => ({
+  getAuthProviderConfig: async () => ({
     GITLAB_TOKEN_URL_INTERNAL: 'https://gitlab.example.com/oauth/token',
     GITLAB_USERINFO_URL_INTERNAL: 'https://gitlab.example.com/api/v4/user',
     client_id: 'test_client_id',

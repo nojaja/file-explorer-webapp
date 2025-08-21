@@ -1,4 +1,4 @@
-import { renderTemplate } from './handlebars-utils.js';
+import { renderTemplate } from './view.js';
 
 /**
  * 認証管理クラス
@@ -45,7 +45,6 @@ export class AuthManager {
    */
   async updateLoginStatus() {
     try {
-      const loginStatusSpan = document.getElementById('login-status-span');
       const sidebarAuth = document.getElementById('sidebar-auth');
       
       if (!sidebarAuth) {
@@ -75,7 +74,7 @@ export class AuthManager {
         this.isAuthenticated = false;
         this.currentUser = null;
         
-        await this.renderUnauthenticatedState(sidebarAuth, loginStatusSpan);
+  		await this.renderUnauthenticatedState(sidebarAuth);
         
         // メインコンテンツの非表示
         const mainContent = document.getElementById('main-content');
@@ -145,7 +144,7 @@ export class AuthManager {
   /**
    * 未認証状態の描画
    */
-  async renderUnauthenticatedState(sidebarAuth, loginStatusSpan) {
+  async renderUnauthenticatedState(sidebarAuth) {
     // ログインボタンを認証方式ごとに動的生成
     const loginButtons = [];
     

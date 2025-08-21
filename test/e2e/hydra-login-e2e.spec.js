@@ -3,7 +3,6 @@ import fs from 'fs/promises';
 
 test.describe('Hydra OAuth認証 E2Eテスト', () => {
   const baseUrl = 'http://localhost:3000';
-  const hydraAdminUrl = 'http://localhost:4445';
 
   test.beforeEach(async ({ page }) => {
     // テスト実行前にサーバーの起動状態を確認
@@ -324,7 +323,7 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
   //   }
   // });
 
-  test('ファイルダウンロードが成功すること', async ({ page, context }) => {
+  test('ファイルダウンロードが成功すること', async ({ page, context: _context }) => {
     // Hydra認証フローを通過してログイン状態にする
     await page.goto(baseUrl);
     const hydraLoginBtn = page.locator('.login-btn.hydra');
@@ -371,9 +370,10 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
     expect(json).toHaveProperty('test', 'これはテスト用のファイルです。ファイルエクスプローラの動作確認用です。');
 
     console.log('✅ ファイルダウンロードが正常に完了し、内容も正しいのだ');
+    void _context;
   });
 
-  test('ファイルダウンロードが成功すること（aタグクリック+page.waitForEvent方式）', async ({ page, context }) => {
+  test('ファイルダウンロードが成功すること（aタグクリック+page.waitForEvent方式）', async ({ page, context: _context }) => {
     // Hydra認証フローを通過してログイン状態にする
     await page.goto(baseUrl);
     const hydraLoginBtn = page.locator('.login-btn.hydra');
@@ -410,9 +410,10 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
     }
     expect(json).toHaveProperty('test', 'これはテスト用のファイルです。ファイルエクスプローラの動作確認用です。');
     console.log('✅ [waitForEvent] ファイルダウンロードが正常に完了し、内容も正しいのだ');
+    void _context;
   });
 
-  test('ファイルダウンロードAPIを直接叩いて内容を検証する', async ({ context, page }) => {
+  test('ファイルダウンロードAPIを直接叩いて内容を検証する', async ({ context: _context, page }) => {
     // Hydra認証フローを通過してログイン状態にする
     await page.goto(baseUrl);
     const hydraLoginBtn = page.locator('.login-btn.hydra');
@@ -442,6 +443,7 @@ test.describe('Hydra OAuth認証 E2Eテスト', () => {
     }
     expect(json).toHaveProperty('test', 'これはテスト用のファイルです。ファイルエクスプローラの動作確認用です。');
     console.log('✅ [API直叩き] ファイルダウンロードAPIの内容検証も正常なのだ');
+    void _context;
   });
 
   test('Hydra認証後の/api/listレスポンスを確認', async ({ page }) => {

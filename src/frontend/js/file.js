@@ -43,12 +43,6 @@ import { renderTemplate} from './view.js';
  * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
  */
 
-// --- スマートコンストラクタ: パス検証 ---
-function createRelPath(path) {
-  if (typeof path !== 'string') return { ok: false, error: new Error('パスが不正です') };
-  if (path.includes('..')) return { ok: false, error: new Error('不正なパス') };
-  return { ok: true, value: path };
-}
 
 /**
  * ファイル管理クラス
@@ -230,7 +224,7 @@ export class FileManager {
         this.updateUploadAreaVisibility();
       }
       
-      await this.renderFiles(data.files || []);
+      await this.renderFiles();
       await this.renderBreadcrumb(path ? path.split('/') : []);
       this.renderParentButton();
       
@@ -255,7 +249,7 @@ export class FileManager {
    * ファイル一覧をレンダリング
    * @param {Array} files 
    */
-  async renderFiles(files) {
+  async renderFiles() {
     // file-card全体を再レンダリング（fetch block helperも含めて）
     const appElement = document.getElementById('main-content');
     if (!appElement) return;
@@ -307,7 +301,7 @@ export class FileManager {
 
     window.cancelRenameFile = () => {
       if (!window._renameTarget) return;
-      const { nameCell, oldName, oldNameHtml} = window._renameTarget;
+      const { nameCell, oldNameHtml} = window._renameTarget;
       nameCell.innerHTML = oldNameHtml;
       window._renameTarget = null;
     };
@@ -426,7 +420,7 @@ export class FileManager {
       // ディスク容量表示用
       let diskInfo = '';
       if (rp.diskSpace) {
-        const { total, free, used } = rp.diskSpace;
+        const { total, free } = rp.diskSpace; // 'used' は未使用のため除去
         // 単位変換（バイト→GB）
         const toGB = v => v != null ? (v / (1024 ** 3)).toFixed(1) : '?';
         diskInfo = `空き: ${toGB(free)}GB / 総容量: ${toGB(total)}GB`;
@@ -490,7 +484,7 @@ export class FileManager {
         this.updateUploadAreaVisibility();
       }
       
-      await this.renderFiles(data.files || []);
+      await this.renderFiles();
       await this.renderBreadcrumb(path.split('/').filter(Boolean));
       this.renderParentButton();
       
@@ -577,7 +571,16 @@ export class FileManager {
    * 親ボタンの描画
    */
   renderParentButton() {
-    // 既存実装を維持
+    // 親ボタンは現在パスが空の場合は無効化、それ以外は有効にする簡易実装
+    const parentBtn = document.getElementById('parent-btn');
+    if (!parentBtn) return;
+    if (!this.uiState.currentPath || this.uiState.currentPath === '') {
+      parentBtn.disabled = true;
+      parentBtn.classList.add('disabled');
+    } else {
+      parentBtn.disabled = false;
+      parentBtn.classList.remove('disabled');
+    }
   }
 
   /**

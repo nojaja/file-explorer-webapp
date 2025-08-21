@@ -386,10 +386,13 @@ function saveConfig() {
  * @typedef {{ ok: true, value: T } | { ok: false, error: Error }} Result
  */
 // --- 純粋関数: 認可判定 ---
-function getUserPermission(email, rootPathId) {
+function _getUserPermission(email, rootPathId) {
   if (!authorizationConfig) return { ok: false, error: new Error('認可設定未ロード') };
   const rule = authorizationConfig.authorization.rules.find(r => r.email === email);
   if (!rule) return { ok: true, value: authorizationConfig.authorization.defaultPermission };
   return { ok: true, value: rule.rootPathPermissions[rootPathId] || authorizationConfig.authorization.defaultPermission };
 }
+
+// テストや内部利用向けにエクスポート（lint対策）
+export { _getUserPermission as getUserPermissionInternal };
 

@@ -24,7 +24,7 @@ import {
 } from "./util/hydraTokenHelper.js";
 import { gitlabUrlReplaceMiddleware } from "./middlewares/gitlabUrlReplace.js";
 import { hydraUrlReplaceMiddleware } from "./middlewares/hydraUrlReplace.js";
-import { loginUser, isEmailAuthorized, initializeAllowedEmails} from "./services/userService.js";
+import { loginUser, initializeAllowedEmails } from "./services/userService.js";
 import { initializeAuthorization } from "./services/authorizationService.js";
 import cors from "cors"; // CORSミドルウェアをインポート
 
@@ -138,7 +138,7 @@ app.use(`${rootPrefix}dist`, express.static(path.join(process.cwd(), 'dist')));
 // assetsパスをdist/assetsに配信（SPA対応）
 app.use(`${rootPrefix}assets`, express.static(path.join(process.cwd(), 'dist/assets')));
 // index.htmlのみWEB_ROOT_PATHを埋め込んで返す
-app.get(`${rootPrefix}`, async (req, res, next) => {
+app.get(`${rootPrefix}`, async (req, res) => {
   const indexPath = path.join(process.cwd(), 'src/frontend/index.html');
   try {
     let html = await fs.promises.readFile(indexPath, 'utf8');
@@ -427,6 +427,9 @@ passport.deserializeUser((user, done) => {
 
 // エラーハンドリング
 app.use((err, req, res, next) => {
+  // next は Express のエラーハンドラシグネチャのために受け取るが、
+  // 現状では未使用のため void で参照して lint を回避する
+  void next;
   console.error("エラー発生:", err);
   res.status(500).json({ error: "サーバ内部エラーが発生しました" });
 });

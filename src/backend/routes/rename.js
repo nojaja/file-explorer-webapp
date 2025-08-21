@@ -27,7 +27,9 @@ router.post("/", accessAuthorizationMiddleware, async (req, res) => {
     try {
       await fs.access(newAbsPath);
       throw new Error("同名のファイルまたはフォルダが既に存在します");
-    } catch {}
+    } catch (err) {
+      /* empty */
+    }
     // ファイル/ディレクトリのリネーム
     await fs.rename(absPath, newAbsPath);
     res.json({ ok: true });

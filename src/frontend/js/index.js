@@ -84,7 +84,7 @@ class App {
     }
     
     if (fileInput) {
-      fileInput.onchange = (e) => {
+      fileInput.onchange = () => {
         if (fileInput.files && fileInput.files.length > 0) {
           this.fileManager.handleUpload(fileInput.files);
           fileInput.value = '';
@@ -93,23 +93,23 @@ class App {
     }
     
     if (fileTable) {
-      fileTable.addEventListener('dragover', (e) => {
-        e.preventDefault();
+      fileTable.addEventListener('dragover', (evt) => {
+        evt.preventDefault();
         fileTable.classList.add('dragover-upload');
       });
       
-      fileTable.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        if (!fileTable.contains(e.relatedTarget)) {
+      fileTable.addEventListener('dragleave', (evt) => {
+        evt.preventDefault();
+        if (!fileTable.contains(evt.relatedTarget)) {
           fileTable.classList.remove('dragover-upload');
         }
       });
       
-      fileTable.addEventListener('drop', (e) => {
-        e.preventDefault();
+      fileTable.addEventListener('drop', (evt) => {
+        evt.preventDefault();
         fileTable.classList.remove('dragover-upload');
-        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-          this.fileManager.handleUpload(e.dataTransfer.files);
+        if (evt.dataTransfer.files && evt.dataTransfer.files.length > 0) {
+          this.fileManager.handleUpload(evt.dataTransfer.files);
         }
       });
     }

@@ -4,7 +4,6 @@ import {
   registerUser,
   loginUser,
   isEmailAuthorized,
-  getUser,
   getUserByEmail,
   getAllUsers,
   getAllowedEmails,

@@ -104,7 +104,7 @@ class Router {
    * @param {Object} options 
    * @returns {Promise<Object>}
    */
-  async fetchPageData(pagename, id, options) {
+  async fetchPageData(pagename, id) {
     switch (pagename) {
       case 'main':
       case 'file':

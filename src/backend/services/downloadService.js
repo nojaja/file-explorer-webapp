@@ -74,7 +74,8 @@ export async function downloadFile(req, res) {
     // ファイルストリームをpipe
     const stream = fsSync.createReadStream(resolvedAbsPath);
     stream.pipe(res);
-    stream.on('error', err => {
+    stream.on('error', (error) => {
+      console.error("ファイル読み込みエラー:", error);
       res.status(500).end("ファイル読み込みエラー");
     });
   } catch (error) {

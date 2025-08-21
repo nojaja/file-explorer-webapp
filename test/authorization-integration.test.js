@@ -2,19 +2,6 @@
 
 const BASE_URL = 'http://localhost:3000';
 
-// テスト用のモックセッション作成（実際のOAuth認証の代わり）
-async function createMockSession(email, provider = 'hydra') {
-    // 実際の認証プロセスをシミュレートするため、
-    // ここではdirect APIアクセスでテストする
-    return {
-        user: {
-            email: email,
-            provider: provider,
-            id: 'test-user-id'
-        }
-    };
-}
-
 describe('認可システム統合テスト', () => {
     
     describe('権限レベル別API アクセステスト', () => {

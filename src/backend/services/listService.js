@@ -71,6 +71,8 @@ function createAbsPath(ROOT_PATH, relPath) {
 
 // --- 純粋関数: ファイルエントリ生成 ---
 function toFileEntry(entry, stat, currentRelPath, resolvedAbsPath) {
+  // resolvedAbsPath は将来の利用のために受け取るが、現状は未使用のため void で参照しておく（lint 対策）
+  void resolvedAbsPath;
   return {
     name: entry.name,
     type: entry.isDirectory() ? 'dir' : 'file',

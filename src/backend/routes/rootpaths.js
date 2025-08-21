@@ -1,10 +1,8 @@
 import express from "express";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { 
-    getRootPaths, 
     getDefaultRootPath, 
-    getUserAccessibleRootPaths,
-    getRootPathById 
+    getUserAccessibleRootPaths
 } from "../services/authorizationService.js";
 
 const router = express.Router();
