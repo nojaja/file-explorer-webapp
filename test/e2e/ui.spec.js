@@ -7,8 +7,9 @@ import { getBaseUrl } from './helpers/getBaseUrl.js';
 import { hydraLogin } from './helpers/hydraLogin.js';
 
 test.describe('ファイルエクスプローラUI', () => {
+  const baseUrl = getBaseUrl();
   test('トップ画面が表示される', async ({ page }) => {
-    await page.goto(getBaseUrl());
+    await page.goto(baseUrl);
     // サイドバーやログインボタンの初期描画を待機
     await waitForSidebarOrLogin(page, { timeout: 15000 });
     await page.waitForSelector('header');
@@ -19,14 +20,14 @@ test.describe('ファイルエクスプローラUI', () => {
   });
 
   test('ファイル一覧テーブルが表示される', async ({ page }) => {
-    await page.goto(getBaseUrl());
+    await page.goto(baseUrl);
     // サイドバーやログインボタンの初期描画を待機
     await waitForSidebarOrLogin(page, { timeout: 15000 });
     await page.waitForSelector('header');
 
 
     // Hydraログインフローを共通ヘルパーで実行
-    await hydraLogin(page, getBaseUrl());
+    await hydraLogin(page, baseUrl);
 
     // テーブルが表示されることを確認
     await page.waitForSelector('table#file-table');
