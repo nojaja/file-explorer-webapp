@@ -42,7 +42,7 @@ export async function putTestData(relativePath, content) {
 	try {
 		await fs.mkdir(dir, { recursive: true });
 		await fs.writeFile(dest, content);
-		console.log('✅ テストデータ配置完了:', dest);
+		//console.log('✅ テストデータ配置完了:', dest);
 		return dest;
 	} catch (err) {
 		console.error('❌ テストデータ配置失敗:', err.message);
@@ -59,7 +59,7 @@ export async function removeTestData(relativePath) {
 	const target = safeJoin(ROOT_PATH, relativePath);
 	try {
 		await fs.unlink(target);
-		console.log('✅ テストデータ削除完了:', target);
+		//console.log('✅ テストデータ削除完了:', target);
 		return true;
 	} catch (err) {
 		if (err.code === 'ENOENT') {

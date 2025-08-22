@@ -10,6 +10,10 @@ services:
       - ./data:/data
     ports:
       - "3000:3000"
+    deploy:
+      resources:
+        limits:
+          memory: 60M
     depends_on:
       - gitlab
       - hydra
