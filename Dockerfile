@@ -7,7 +7,9 @@ COPY package.json package-lock.json webpack.backend.config.js ./
 COPY src/ ./src/
 COPY conf/ ./conf/
 # 依存関係をインストール
-RUN npm ci
+# package-lock.json と package.json が同期していない CI 環境向けに
+# ビルドでは npm install を使う（最小変更でビルドを通す）
+RUN npm install
 # pkgとwebpack-cliをグローバルインストール
 RUN npm install -g pkg@latest webpack webpack-cli
 # バックエンドをビルドしてバンドル（CommonJS）

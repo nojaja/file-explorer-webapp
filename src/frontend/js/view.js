@@ -89,17 +89,18 @@ export class CustomHandlebarsFactory {
       return '';
     });
     // fetch: REST APIをコールしjsonをブロック内で参照できる非同期block helper
-	this.handlebars.registerHelper('fetch', async function(apiUrl, _options) {
+    this.handlebars.registerHelper('fetch', async function(apiUrl, _options) {
       try {
         const response = await fetch(apiUrl);
         if (!response.ok) {
-          throw new Error(`fetch helper: API取得失敗: ${response.status}`);
+          const status = response.status;
+          throw new Error(`fetch helper: API取得失敗: ${status}`);
         }
         const json = await response.json();
         // json全体をthisとして参照可能
         return await _options.fn(json);
       } catch (error) {
-        console.error('fetch helper error:', error);
+        console.error('fetch helper error:', error, 'apiUrl=', apiUrl);
         if (_options.inverse) {
           return await _options.inverse(this);
         }

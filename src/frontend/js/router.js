@@ -34,8 +34,9 @@ class Router {
    */
   async pageGen(pagename, id = null, options = {}) {
     try {
-      // 1. URL制御・履歴管理
-      const url = new URL(window.location);
+  // 1. URL制御・履歴管理
+  // URLコンストラクタには文字列を渡す（Locationオブジェクトを直接渡すと一部環境で例外になることがあるため）
+  const url = new URL(location.href);
       url.searchParams.set('q', pagename);
       if (id) url.searchParams.set('id', id);
       

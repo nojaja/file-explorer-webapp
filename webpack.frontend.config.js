@@ -32,7 +32,11 @@ export default {
     })
   ],
   resolve: {
-    extensions: ['.js']
+    extensions: ['.js'],
+    fallback: {
+      path: 'path-browserify',
+      fs: false
+    }
   },
   target: 'web',
 };

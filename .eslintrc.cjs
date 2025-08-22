@@ -23,8 +23,8 @@ module.exports = {
       env: { jest: true },
       rules: {
         // テストファイルでは一部ルールを緩和
-        'no-undef': 'off'
-  , 'max-lines-per-function': 'off'
+        'no-undef': 'off',
+        'max-lines-per-function': 'off'
       }
     }
   ]

@@ -42,6 +42,17 @@ npm test         # 単体テスト
 npm run test:e2e # E2Eテスト
 ```
 
+## 類似コード検出 (jscpd)
+
+プロジェクト内の重複コードを検出するには、開発依存をインストールした後、以下を実行します。
+
+```sh
+npm install
+npm run jscpd
+```
+
+出力はコンソールと HTML レポートに出力されます（デフォルト: `jscpd-report.html`）。
+
 
 ## gitlab　設定手順
 ## gitlabの初期パスワード

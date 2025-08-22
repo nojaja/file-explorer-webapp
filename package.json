@@ -5,13 +5,15 @@
   "main": "src/backend/index.js",
   "type": "module",
   "scripts": {
-  "start": "node src/backend/index.js",
-  "build:frontend": "webpack --config webpack.frontend.config.js",
-  "build:backend": "webpack --config webpack.backend.config.js",
-  "test": "jest",
-  "test:e2e": "playwright test",
-  "lint": "eslint . --ext .js",
-  "lint:fix": "eslint . --ext .js --fix"
+    "start": "docker-compose up -d --force-recreate --build app",
+    "start:local": "node src/backend/index.js",
+    "build:frontend": "webpack --config webpack.frontend.config.js",
+    "build:backend": "webpack --config webpack.backend.config.js",
+    "test": "jest",
+    "test:e2e": "playwright test",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix",
+    "jscpd": "jscpd --config .jscpd.json"
   },
   "author": "",
   "license": "MIT",
@@ -43,8 +45,10 @@
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^30.0.4",
     "playwright": "^1.43.1",
-  "webpack": "^5.99.8",
-  "webpack-cli": "^6.0.1",
-  "eslint": "^8.45.0"
+    "path-browserify": "^1.0.1",
+    "webpack": "^5.99.8",
+    "webpack-cli": "^6.0.1",
+    "eslint": "^8.45.0",
+    "jscpd": "^3.5.0"
   }
 }

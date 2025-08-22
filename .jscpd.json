@@ -1,0 +1,23 @@
+{
+  "threshold": 10,
+  "minTokens": 50,
+  "languages": [
+    {
+      "name": "javascript",
+      "extensions": [".js", ".mjs"]
+    }
+  ],
+  "reporters": ["console", "html"],
+  "exclude": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "docs/**",
+    "test-results/**",
+    "playwright-report/**",
+    "data/**"
+  ],
+  "path": ["./src", "./test"],
+  "minLines": 10,
+  "silent": false
+}

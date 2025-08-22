@@ -140,8 +140,9 @@ app.use(`${rootPrefix}assets`, express.static(path.join(process.cwd(), 'dist/ass
 app.get(`${rootPrefix}`, async (req, res) => {
   const indexPath = path.join(process.cwd(), 'src/frontend/index.html');
   try {
-    let html = await fs.promises.readFile(indexPath, 'utf8');
-    html = html.replace('__WEB_ROOT_PATH__', rootPrefix.replace(/\/$/, ''));
+  let html = await fs.promises.readFile(indexPath, 'utf8');
+  // __WEB_ROOT_PATH__ を全て置換する（複数箇所に出現する可能性があるため global replace）
+  html = html.replace(/__WEB_ROOT_PATH__/g, rootPrefix.replace(/\/$/, ''));
     res.setHeader('Content-Type', 'text/html');
     res.send(html);
   } catch (e) {
@@ -370,7 +371,9 @@ renderTemplate = (templateName, data = {}) => {
     const templatePath = path.join(templatesDir, `${templateName}.hbs`);
     const templateContent = fs.readFileSync(templatePath, 'utf8');
     const template = Handlebars.compile(templateContent);
-    return template(data);
+    const rendered = template(data);
+    // テンプレートから返すHTML内のプレースホルダを置換して返す
+    return rendered.replace(/__WEB_ROOT_PATH__/g, rootPrefix.replace(/\/$/, ''));
   } catch (error) {
     console.error(`[renderTemplate] テンプレート読み込みエラー (${templateName}):`, error);
     throw error;
@@ -397,9 +400,20 @@ app.use((err, req, res, next) => {
 });
 
 // SPA用catch-all（静的ファイルに該当しない場合のみindex.htmlを返す）
-app.get("*", (req, res) => {
+// 注意: 未マッチルートでは SPA の index.html を返すが、__WEB_ROOT_PATH__ プレースホルダを
+// 置換して返すようにする（複数の場所で index を返すため統一して置換処理を行う）
+app.get("*", async (req, res) => {
   console.log(`[catch-all] パス: ${req.path}, 静的ファイル確認後のindex.html返却`);
-  res.sendFile(path.resolve(process.cwd(), "src/frontend/index.html"));
+  try {
+    const indexPath = path.resolve(process.cwd(), "src/frontend/index.html");
+    let html = await fs.promises.readFile(indexPath, 'utf8');
+    html = html.replace(/__WEB_ROOT_PATH__/g, rootPrefix.replace(/\/$/, ''));
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(html);
+  } catch (err) {
+    console.error('[catch-all index read error]', err);
+    return res.status(500).send('index.html の配信に失敗しました');
+  }
 });
 
 app.listen(PORT, '0.0.0.0', () => {

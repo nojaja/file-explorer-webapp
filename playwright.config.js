@@ -1,4 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
+import dotenv from 'dotenv';
+
+// .env を読み込む
+dotenv.config();
 
 /**
  * @see https://playwright.dev/docs/test-configuration
@@ -18,11 +22,11 @@ export default defineConfig({
   /* Shared settings for all the tests below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://localhost:3000',
+    baseURL: `http://localhost:${process.env.PORT}${process.env.WEB_ROOT_PATH}`,
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    
+
     /* 日本語対応 */
     locale: 'ja-JP',
     timezoneId: 'Asia/Tokyo',
@@ -68,8 +72,8 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm start',
-    url: 'http://localhost:3000',
+    command: 'docker-compose up -d --force-recreate --build app',
+    url: `http://localhost:${process.env.PORT}${process.env.WEB_ROOT_PATH}`,
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000, // 2分のタイムアウト
   },

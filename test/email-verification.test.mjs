@@ -12,7 +12,7 @@ test.describe('Hydraメール取得機能検証', () => {
       await page.goto(baseUrl);
       
       // Hydraログインボタンをクリック
-      const hydraLoginBtn = page.locator('.login-btn.hydra');
+  const hydraLoginBtn = page.locator('#hydra-login-btn');
       await expect(hydraLoginBtn).toBeVisible();
       console.log('✅ Hydraログインボタン確認');
       
