@@ -35,11 +35,11 @@
             <td>{{mtime}}</td>
             <td class="actions">
                 {{#ifEquals type 'dir'}}
-                <a class="icon-btn" title="zipダウンロード" href="{{fn '"./api/download/folder?rootPathId=" + encodeURIComponent(options.data.root.rootPathId) + (path ? "&path=" + encodeURIComponent(path) : "")'}}" download>
+                <a class="icon-btn" title="zipダウンロード" href="{{fn '"./api/download/folder?rootPathId=" + encodeURIComponent(options.data.root.rootPathId) + (path ? "&path=" + encodeURIComponent(path) : "")'}}" download target="_blank" rel="noopener">
                     <span class="material-icons">archive</span>
                 </a>
                 {{else}}
-                <a class="download-link icon-btn" title="ダウンロード" href="{{fn '"./api/download/file?rootPathId=" + encodeURIComponent(options.data.root.rootPathId) + (path ? "&path=" + encodeURIComponent(path) : "")'}}" download>
+                <a class="download-link icon-btn" title="ダウンロード" href="{{fn '"./api/download/file?rootPathId=" + encodeURIComponent(options.data.root.rootPathId) + (path ? "&path=" + encodeURIComponent(path) : "")'}}" download target="_blank" rel="noopener">
                     <span class="material-icons">download</span>
                 </a>
                 {{/ifEquals}}

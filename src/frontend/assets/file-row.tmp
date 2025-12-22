@@ -14,11 +14,11 @@
   <td>{{mtime}}</td>
   <td class="actions">
     {{#if isDir}}
-      <a class="icon-btn" title="zipダウンロード" href="{{downloadFolderUrl}}" download>
+      <a class="icon-btn" title="zipダウンロード" href="{{downloadFolderUrl}}" download target="_blank" rel="noopener">
         <span class="material-icons">archive</span>
       </a>
     {{else}}
-      <a class="download-link icon-btn" title="ダウンロード" href="{{downloadFileUrl}}" download>
+      <a class="download-link icon-btn" title="ダウンロード" href="{{downloadFileUrl}}" download target="_blank" rel="noopener">
         <span class="material-icons">download</span>
       </a>
     {{/if}}
