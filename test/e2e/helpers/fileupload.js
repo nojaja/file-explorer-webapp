@@ -1,4 +1,4 @@
-export async function uploadFileInPage(page, url, rootPathId, path, fileName, fileContent = 'Playwright upload test content') {
+export async function uploadFileInPage(page, { url, rootPathId, path, fileName, fileContent = 'Playwright upload test content' }) {
     // page.evaluate で使うシリアライズ可能な関数を構築して実行
     const payload = { url, rootPathId, path, fileName, fileContent };
     return await page.evaluate(async ({ url, rootPathId, path, fileName, fileContent }) => {

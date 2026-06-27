@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import { getBaseUrl } from './helpers/getBaseUrl.js';
 import { hydraLogin } from './helpers/hydraLogin.js';
 import { uploadFileInPage } from './helpers/fileupload.js';
-import { putTestData, readTestData, removeTestData, ROOT_PATH } from './helpers/testDataCRUD.js';
+import { putTestData, readTestData, removeTestData } from './helpers/testDataCRUD.js';
 
 test.describe('APIサーバ基本機能', () => {
     const baseUrl = getBaseUrl();
@@ -48,13 +48,12 @@ test.describe('APIサーバ基本機能', () => {
         console.log('✅ 認証後の/api/listレスポンス確認完了');
     });
 
-    test('ファイルのアップロードAPIを直接叩いて登録できたかを検証する', async ({ context: _context, page }) => {
+    test('ファイルのアップロードAPIを直接叩いて登録できたかを検証する', async ({ page }) => {
         // Hydra認証フローを通過してログイン状態にする
         await hydraLogin(page, baseUrl);
 
         // テスト用ファイル名・内容
         const rootPathId = 'main';
-        const path = '';
         const uploadFileName = 'playwright-upload-test.txt';
         const uploadFileContent = 'Playwright upload test content';
 
@@ -62,7 +61,13 @@ test.describe('APIサーバ基本機能', () => {
         const apiUrl = new URL(`api/upload`, baseUrl).toString();
 
         // ファイルアップロードを実行（ヘルパーに切り出し）
-        const apiResult = await uploadFileInPage(page, apiUrl, rootPathId, path, uploadFileName, uploadFileContent);
+        const apiResult = await uploadFileInPage(page, {
+            url: apiUrl,
+            rootPathId,
+            path: '',
+            fileName: uploadFileName,
+            fileContent: uploadFileContent,
+        });
         console.log(apiResult.text,apiResult)
         if (apiResult.error) throw new Error('API fetch failed: ' + apiResult.error);
         await expect(apiResult.status).toBe(200);
@@ -84,13 +89,12 @@ test.describe('APIサーバ基本機能', () => {
         await removeTestData(uploadFileName);
     });
 
-    test('存在するファイルのダウンロードAPIを直接叩いて内容を検証する', async ({ context: _context, page }) => {
+    test('存在するファイルのダウンロードAPIを直接叩いて内容を検証する', async ({ page }) => {
         // Hydra認証フローを通過してログイン状態にする
         await hydraLogin(page, baseUrl);
 
         // テスト用ファイル名・内容
         const rootPathId = 'main';
-        const path = '';
         const downloadFileName = 'playwright-download-test.txt';
         const downloadFileContent = 'Playwright download test content';
         await putTestData(downloadFileName, downloadFileContent);
@@ -119,13 +123,11 @@ test.describe('APIサーバ基本機能', () => {
         await expect(apiResult.text.length).toBeGreaterThan(0);
         await expect(apiResult.text).toBe(downloadFileContent);
 
-        
         // 一時ファイル削除
         await removeTestData(downloadFileName);
-        void _context;
     });
 
-    test('存在しないファイルをダウンロードAPIを直接叩いて404返却を確認', async ({ context: _context, page }) => {
+    test('存在しないファイルをダウンロードAPIを直接叩いて404返却を確認', async ({ page }) => {
         // Hydra認証フローを通過してログイン状態にする
         await hydraLogin(page, baseUrl);
         // ページのセッション（クッキー）を使って fetch を実行する
@@ -152,13 +154,12 @@ test.describe('APIサーバ基本機能', () => {
         expect(apiResult.status).toBe(404);
     });
 
-    test('存在するファイル削除で200', async ({ context: _context, page }) => {
+    test('存在するファイル削除で200', async ({ page }) => {
         // Hydra認証フローを通過してログイン状態にする
         await hydraLogin(page, baseUrl);
 
         // テスト用ファイル名・内容
         const rootPathId = 'main';
-        const path = '';
         const deleteFileName = 'playwright-delete-test.txt';
         const deleteFileContent = 'Playwright delete test content';
         await putTestData(deleteFileName, deleteFileContent);
@@ -171,7 +172,6 @@ test.describe('APIサーバ基本機能', () => {
         }, deleteUrl);
         await expect([200]).toContain(deleteResult.status);
         
-        
         // 削除後、ファイル一覧APIで存在しないことを確認
         const listResAfter = await page.request.get(`api/list?rootPathId=${rootPathId}`);
         await expect(listResAfter.status()).toBe(200);
@@ -181,7 +181,7 @@ test.describe('APIサーバ基本機能', () => {
 
     });
 
-    test('10000ファイルが入ったフォルダ(/DeleteTest)を削除して200を返す', async ({ context: _context, page }) => {
+    test('10000ファイルが入ったフォルダ(/DeleteTest)を削除して200を返す', async ({ page }) => {
         // このテストは長時間処理を待つためテストタイムアウトを延長する
         test.setTimeout(600000); // 10分
         const rootPathId = 'main';
@@ -237,16 +237,14 @@ test.describe('APIサーバ基本機能', () => {
         const anyRemaining = listJsonAfter.files.some(f => (f.path || f.name || '').startsWith(folderName.replace(/^\/+/, '')));
         await expect(anyRemaining).toBe(false);
 
-        void _context;
     });
 
-    test('存在しないファイル削除で404', async ({ context: _context, page }) => {
+    test('存在しないファイル削除で404', async ({ page }) => {
         // Hydra認証フローを通過してログイン状態にする
         await hydraLogin(page, baseUrl);
 
         // テスト用ファイル名・内容
         const rootPathId = 'main';
-        const path = '';
         const deleteFileName = '__notfound__';
 
         // ファイル削除APIで削除
