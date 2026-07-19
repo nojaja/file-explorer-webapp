@@ -81,9 +81,35 @@ function _exists(p) {
 }
 
 async function _removePath(p) {
-  if (fsSync.lstatSync(p).isDirectory()) {
-    await fs.rm(p, { recursive: true, force: true });
-  } else {
+  const stat = await fs.lstat(p);
+  if (!stat.isDirectory()) {
     await fs.unlink(p);
+    return;
+  }
+
+  // 大きなディレクトリでも配下を一括保持せず、深さ優先で順次削除する。
+  const stack = [{ dirPath: p, scanned: false }];
+
+  while (stack.length > 0) {
+    const current = stack[stack.length - 1];
+
+    if (!current.scanned) {
+      current.scanned = true;
+      const dir = await fs.opendir(current.dirPath);
+
+      for await (const entry of dir) {
+        const entryPath = path.join(current.dirPath, entry.name);
+        if (entry.isDirectory()) {
+          stack.push({ dirPath: entryPath, scanned: false });
+          continue;
+        }
+        await fs.unlink(entryPath);
+      }
+
+      continue;
+    }
+
+    stack.pop();
+    await fs.rmdir(current.dirPath);
   }
 }

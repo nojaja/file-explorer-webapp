@@ -38,10 +38,34 @@ describe('deleteService', () => {
     };
   });
   it('正常系: ファイル削除', async () => {
+    await fs.writeFile(path.join(testDir, 'del.txt'), 'del');
     await deleteService.deleteFile(req, res);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
     // ファイルが消えている
     await expect(fs.stat(path.join(testDir, 'del.txt'))).rejects.toThrow();
+  });
+  it('正常系: 多数のファイルを含むディレクトリ削除', async () => {
+    const targetDir = path.join(testDir, 'bulk-delete');
+    const nestedDir = path.join(targetDir, 'nested');
+    await fs.mkdir(nestedDir, { recursive: true });
+
+    const writeTasks = [];
+    for (let index = 0; index < 150; index += 1) {
+      writeTasks.push(fs.writeFile(path.join(targetDir, `file-${index}.txt`), 'root'));
+      writeTasks.push(fs.writeFile(path.join(nestedDir, `nested-${index}.txt`), 'nested'));
+    }
+    await Promise.all(writeTasks);
+
+    req.query.path = 'bulk-delete';
+    const rmSpy = jest.spyOn(fs, 'rm');
+
+    await deleteService.deleteFile(req, res);
+
+    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ success: true }));
+    await expect(fs.stat(targetDir)).rejects.toThrow();
+    expect(rmSpy).not.toHaveBeenCalled();
+
+    rmSpy.mockRestore();
   });
   it('異常系: 不正なパス', async () => {
     req.query.path = '../outside.txt';
