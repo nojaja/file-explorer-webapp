@@ -36,6 +36,14 @@ docker-compose up -d --force-recreate --build app
 - `docker-compose restart app` ではコードや依存パッケージの変更が反映されない場合があります。
 - 依存パッケージやDockerfile、ソースコードを更新した場合は必ず上記コマンドを使ってください。
 
+### npm start のポート自動選択
+
+`npm start` は GitLab 用の公開ポートを自動選択します。既定の `8929` や `2222` が使用中でも、空いている次のポートへ切り替えて起動します。
+
+- GitLab HTTP: `8929` から順に探索
+- GitLab SSH: `2222` から順に探索
+- 明示指定したい場合は `GITLAB_HOST_PORT` / `GITLAB_SSH_HOST_PORT` を環境変数で設定
+
 ## テスト
 ```sh
 npm test         # 単体テスト
@@ -62,6 +70,8 @@ npm run jscpd
 1. open Add new application page
 http://gitlab.localhost:8929/admin/applications/new
 
+`8929` が使用中で `npm start` が別ポートを選んだ場合は、そのポート番号で読み替えてください。
+
 - Name:file-explorer-webapp
 - Redirect URI:
  - http://localhost:3000/test/auth/callback
@@ -84,6 +94,8 @@ http://gitlab.localhost:8929/admin/applications/new
 
 5. get my email & edit authorization-config.json
 http://gitlab.localhost:8929/-/user_settings/profile
+
+ここも `npm start` が別ポートを選んだ場合は、そのポート番号でアクセスしてください。
 Main settings > Email -> authorization.rules.email
 
 6. restart app

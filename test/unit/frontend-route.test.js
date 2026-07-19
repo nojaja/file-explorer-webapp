@@ -36,7 +36,7 @@ describe('frontend route hash sync', () => {
 
     expect(replaceStateSpy).toHaveBeenCalledTimes(1);
     const [, , url] = replaceStateSpy.mock.calls[0];
-    expect(String(url)).toContain('#rootA/folder%2Fchild%2Ffile.txt');
+    expect(String(url)).toContain('#rootA/folder/child/file.txt');
     expect(replaceStateSpy.mock.calls[0][0]).toEqual({
       rootPathId: 'rootA',
       path: 'folder/child/file.txt'

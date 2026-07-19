@@ -269,8 +269,11 @@ export class FileManager {
     }
 
     const path = this.uiState.currentPath || '';
+    const encodedPath = path
+      ? path.split('/').map((segment) => encodeURIComponent(segment)).join('/')
+      : '';
     const hash = path
-      ? `#${encodeURIComponent(rootPathId)}/${encodeURIComponent(path)}`
+      ? `#${encodeURIComponent(rootPathId)}/${encodedPath}`
       : `#${encodeURIComponent(rootPathId)}`;
 
     if ((location.hash || '') === hash) {

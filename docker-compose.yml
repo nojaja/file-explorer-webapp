@@ -6,6 +6,8 @@ services:
       - .env
     environment:
       - NODE_ENV=test
+      - GITLAB_HOST_PORT=${GITLAB_HOST_PORT:-8929}
+      - GITLAB_PUBLIC_URL=http://gitlab.localhost:${GITLAB_HOST_PORT:-8929}
     volumes:
       - ./data:/data
     ports:
@@ -23,7 +25,7 @@ services:
     hostname: 'gitlab.local'
     environment:
       GITLAB_OMNIBUS_CONFIG: |
-        external_url 'http://gitlab.localhost:8929'
+        external_url 'http://gitlab.localhost:${GITLAB_HOST_PORT:-8929}'
         gitlab_rails['omniauth_enabled'] = true
         sidekiq['max_concurrency'] = 1
         puma['worker_processes'] = 0
@@ -33,8 +35,8 @@ services:
       - ./data/gitlab/log:/var/log/gitlab
       - ./data/gitlab/opt:/var/opt/gitlab
     ports:
-      - "8929:8929"
-      - "2222:22"
+      - "${GITLAB_HOST_PORT:-8929}:8929"
+      - "${GITLAB_SSH_HOST_PORT:-2222}:22"
     shm_size: '256m'
   hydra:
     image: oryd/hydra:v2.2.0

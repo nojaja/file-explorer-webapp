@@ -28,23 +28,7 @@ class App {
       // 4. ROOT_PATH情報の取得（認証済みの場合）
       if (this.authManager.isAuthenticated) {
         await this.fileManager.fetchRootPaths();
-        
-        // 5. hash から初期表示を復元
-        const { rootPathId, path } = router.getHashRoute();
-        if (rootPathId) {
-          const selectedRootPath = this.fileManager.uiState.rootPaths?.find((rootPath) => rootPath.id === rootPathId);
-          if (selectedRootPath) {
-            if (this.fileManager.uiState.selectedRootPath?.id !== selectedRootPath.id) {
-              await this.fileManager.selectRootPath(selectedRootPath.id, { skipFetch: true });
-            }
-            await this.fileManager.fetchFiles(path);
-          } else {
-            await this.fileManager.fetchFiles('');
-          }
-        } else {
-          // 5. 初期ファイル一覧の取得
-          await this.fileManager.fetchFiles('');
-        }
+        await this.restoreInitialFiles();
       }
       
       // 6. UIイベントリスナーの設定
@@ -56,6 +40,26 @@ class App {
       console.error('[App] 初期化エラー:', error);
       await router.handleError(error);
     }
+  }
+
+  async restoreInitialFiles() {
+    const { rootPathId, path } = router.getHashRoute();
+    if (!rootPathId) {
+      await this.fileManager.fetchFiles('');
+      return;
+    }
+
+    const selectedRootPath = this.fileManager.uiState.rootPaths?.find((rootPath) => rootPath.id === rootPathId);
+    if (!selectedRootPath) {
+      await this.fileManager.fetchFiles('');
+      return;
+    }
+
+    if (this.fileManager.uiState.selectedRootPath?.id !== selectedRootPath.id) {
+      await this.fileManager.selectRootPath(selectedRootPath.id, { skipFetch: true });
+    }
+
+    await this.fileManager.fetchFiles(path);
   }
 
   /**

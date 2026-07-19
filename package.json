@@ -5,7 +5,7 @@
   "main": "src/backend/index.js",
   "type": "module",
   "scripts": {
-    "start": "docker-compose up -d --force-recreate --build app",
+    "start": "node scripts/start-docker.js",
     "start:local": "node src/backend/index.js",
     "build:frontend": "webpack --config webpack.frontend.config.js",
     "build:backend": "webpack --config webpack.backend.config.js",

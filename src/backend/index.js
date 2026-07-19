@@ -49,6 +49,7 @@ let providerConfig = null;
 try {
   const raw = fs.readFileSync(providerConfigPath, "utf8");
   providerConfig = JSON.parse(raw);
+  providerConfig = _applyProviderConfigOverrides(providerConfig);
   console.log('[認証プロバイダー設定] 読み込み成功:', providerConfigPath);
 } catch (e) {
   console.error('[認証プロバイダー設定] 読み込み失敗:', providerConfigPath, e);
@@ -83,6 +84,23 @@ function _processProviderConfigForFqdn(fqdn, providersObj) {
     global.authConfig[fqdn][providerName] = { ...provConfig };
   }
   global.authList[fqdn].noAuthRequired = Object.keys(enabledProviders).length === 0;
+}
+
+function _applyProviderConfigOverrides(config) {
+  const gitlabPublicUrl = process.env.GITLAB_PUBLIC_URL;
+  if (!gitlabPublicUrl || !config?.providers || typeof config.providers !== 'object') {
+    return config;
+  }
+
+  for (const providersObj of Object.values(config.providers)) {
+    if (!providersObj?.gitlab) {
+      continue;
+    }
+    providersObj.gitlab.GITLAB_URL = gitlabPublicUrl;
+  }
+
+  console.log('[認証プロバイダー設定] GitLab公開URLを環境変数で上書き:', gitlabPublicUrl);
+  return config;
 }
 
 console.log('[認証設定]', global.authList, global.authConfig, global.config);
