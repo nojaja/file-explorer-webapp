@@ -9,12 +9,12 @@ class Router {
     this.routes = new Map();
     this.currentRoute = null;
     this.fileManager = FileManager.getInstance();
+    window.router = this;
     this.init();
   }
 
   init() {
     window.addEventListener('popstate', this.onRoute.bind(this));
-    window.addEventListener('DOMContentLoaded', this.onRoute.bind(this));
   }
 
   /**
@@ -34,16 +34,6 @@ class Router {
    */
   async pageGen(pagename, id = null, options = {}) {
     try {
-  // 1. URL制御・履歴管理
-  // URLコンストラクタには文字列を渡す（Locationオブジェクトを直接渡すと一部環境で例外になることがあるため）
-  const url = new URL(location.href);
-      url.searchParams.set('q', pagename);
-      if (id) url.searchParams.set('id', id);
-      
-      if (!options.skipHistory) {
-        history.pushState({ page: pagename, id }, '', url);
-      }
-
       // 2. テンプレートファイルの取得
       const templateName = this.getTemplateName(pagename);
       
@@ -72,16 +62,63 @@ class Router {
    */
   async onRoute() {
     try {
-      const params = new URLSearchParams(location.search);
-      const page = params.get('q') || 'main';
-      const id = params.get('id');
-      
-      await this.pageGen(page, id, { skipHistory: true });
+      const { rootPathId, path } = this.getHashRoute();
+      if (!rootPathId) {
+        return;
+      }
+
+      await this.applyHashRoute(rootPathId, path);
       
     } catch (error) {
       console.error('[Router] onRoute エラー:', error);
       await this.handleError(error);
     }
+  }
+
+  /**
+   * 現在の hash から ROOT_PATH と path を取得する
+   * @param {string} hash
+   * @returns {{rootPathId: string, path: string}}
+   */
+  getHashRoute(hash = location.hash) {
+    const raw = (hash || '').replace(/^#/, '');
+    if (!raw) {
+      return { rootPathId: '', path: '' };
+    }
+
+    const segments = raw.split('/');
+    const rootPathId = decodeURIComponent(segments.shift() || '').trim();
+    const path = segments.length > 0 ? decodeURIComponent(segments.join('/')) : '';
+    return { rootPathId, path };
+  }
+
+  /**
+   * hash の内容を UI 状態に反映する
+   * @param {string} rootPathId
+   * @param {string} path
+   * @param {{ renderShell?: boolean }} [options]
+   */
+  async applyHashRoute(rootPathId, path = '', options = {}) {
+    const renderShell = options.renderShell ?? false;
+    const targetRootPath = this.fileManager.uiState.rootPaths?.find((rootPath) => rootPath.id === rootPathId)
+      || this.fileManager.rootPaths?.find((rootPath) => rootPath.id === rootPathId)
+      || null;
+
+    if (!targetRootPath) {
+      console.warn('[Router] hash に一致する ROOT_PATH が見つかりません:', rootPathId);
+      return false;
+    }
+
+    if (this.fileManager.uiState.selectedRootPath?.id !== targetRootPath.id) {
+      await this.fileManager.selectRootPath(targetRootPath.id, { skipFetch: true });
+    }
+
+    if (renderShell) {
+      await this.pageGen('main', path, { skipHistory: true });
+    }
+
+    await this.fileManager.fetchFiles(path);
+    return true;
   }
 
   /**

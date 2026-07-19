@@ -134,7 +134,7 @@ export class FileManager {
    * ROOT_PATHを選択
    * @param {string} rootPathId 
    */
-  async selectRootPath(rootPathId) {
+  async selectRootPath(rootPathId, options = {}) {
     try {
       const url = `./api/rootpaths/select`;
       const res = await fetch(url, {
@@ -177,7 +177,9 @@ export class FileManager {
       
       // ファイル一覧を再取得（ルートディレクトリから）
       this.uiState.currentPath = '';
-      await this.fetchFiles('');
+      if (!options.skipFetch) {
+        await this.fetchFiles('');
+      }
       
     } catch (e) {
       console.error('[FileManager] ROOT_PATH選択エラー:', e);
@@ -233,6 +235,7 @@ export class FileManager {
   async _applyListResponse(data, path = '') {
     // path の適用
     this.uiState.currentPath = path;
+    this._syncLocationHash();
 
     // 権限を取得してアップロード領域を更新
     if (this.uiState.selectedRootPath && this.uiState.selectedRootPath.id) {
@@ -254,6 +257,33 @@ export class FileManager {
     const errorDiv = document.getElementById('error');
     if (fileTable) fileTable.style.display = '';
     if (errorDiv) errorDiv.style.display = 'none';
+  }
+
+  /**
+   * 現在の ROOT_PATH と path を URL hash に反映する
+   */
+  _syncLocationHash() {
+    const rootPathId = this.uiState.selectedRootPath?.id;
+    if (!rootPathId || typeof history === 'undefined' || typeof location === 'undefined') {
+      return;
+    }
+
+    const path = this.uiState.currentPath || '';
+    const hash = path
+      ? `#${encodeURIComponent(rootPathId)}/${encodeURIComponent(path)}`
+      : `#${encodeURIComponent(rootPathId)}`;
+
+    if ((location.hash || '') === hash) {
+      return;
+    }
+
+    const nextUrl = new URL(location.href);
+    nextUrl.hash = hash;
+    history.replaceState(
+      { rootPathId, path },
+      '',
+      nextUrl
+    );
   }
 
   /**

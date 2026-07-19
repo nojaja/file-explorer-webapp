@@ -29,8 +29,22 @@ class App {
       if (this.authManager.isAuthenticated) {
         await this.fileManager.fetchRootPaths();
         
-        // 5. 初期ファイル一覧の取得
-        await this.fileManager.fetchFiles('');
+        // 5. hash から初期表示を復元
+        const { rootPathId, path } = router.getHashRoute();
+        if (rootPathId) {
+          const selectedRootPath = this.fileManager.uiState.rootPaths?.find((rootPath) => rootPath.id === rootPathId);
+          if (selectedRootPath) {
+            if (this.fileManager.uiState.selectedRootPath?.id !== selectedRootPath.id) {
+              await this.fileManager.selectRootPath(selectedRootPath.id, { skipFetch: true });
+            }
+            await this.fileManager.fetchFiles(path);
+          } else {
+            await this.fileManager.fetchFiles('');
+          }
+        } else {
+          // 5. 初期ファイル一覧の取得
+          await this.fileManager.fetchFiles('');
+        }
       }
       
       // 6. UIイベントリスナーの設定
